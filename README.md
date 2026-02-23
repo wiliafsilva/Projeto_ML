@@ -24,6 +24,11 @@ Train: 1993–2018
 Test: 2019–2023
 
 ## Run
+Create venv:
+python -m venv .venv
+
+Ativar venv
+.\.venv\Scripts\Activate.ps1
 
 Install dependencies:
 pip install -r requirements.txt
@@ -32,4 +37,5 @@ Run training pipeline:
 python main.py
 
 Run interface:
-python -m streamlit run app.py
+& .\.venv\Scripts\Activate.ps1
+streamlit run app.py
