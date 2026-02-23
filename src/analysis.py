@@ -83,11 +83,11 @@ def plot_roc(probs, y_test):
     for i in range(y_bin.shape[1]):
         fpr, tpr, _ = roc_curve(y_bin[:, i], probs[:, i])
         roc_auc = auc(fpr, tpr)
-        ax.plot(fpr, tpr, label=f'class {i} (AUC={roc_auc:.2f})')
+        ax.plot(fpr, tpr, label=f'classe {i} (AUC={roc_auc:.2f})')
     ax.plot([0,1],[0,1],'k--')
-    ax.set_xlabel('False Positive Rate')
-    ax.set_ylabel('True Positive Rate')
-    ax.set_title('ROC Curves')
+    ax.set_xlabel('Taxa de Falsos Positivos')
+    ax.set_ylabel('Taxa de Verdadeiros Positivos')
+    ax.set_title('Curvas ROC')
     ax.legend()
     fig.tight_layout()
     return fig
@@ -99,10 +99,10 @@ def plot_precision_recall(probs, y_test):
     fig, ax = plt.subplots(figsize=(6,5))
     for i in range(y_bin.shape[1]):
         precision, recall, _ = precision_recall_curve(y_bin[:, i], probs[:, i])
-        ax.plot(recall, precision, label=f'class {i}')
-    ax.set_xlabel('Recall')
-    ax.set_ylabel('Precision')
-    ax.set_title('Precision-Recall Curves')
+        ax.plot(recall, precision, label=f'classe {i}')
+    ax.set_xlabel('Revocação')
+    ax.set_ylabel('Precisão')
+    ax.set_title('Curvas Precisão-Revocação')
     ax.legend()
     fig.tight_layout()
     return fig
@@ -115,11 +115,11 @@ def plot_calibration_curve(probs, y_test, n_bins=10):
     for i in range(y_bin.shape[1]):
         prob_pos = probs[:, i]
         frac_pos, mean_pred = calibration_curve(y_bin[:, i], prob_pos, n_bins=n_bins)
-        ax.plot(mean_pred, frac_pos, marker='o', label=f'class {i}')
+        ax.plot(mean_pred, frac_pos, marker='o', label=f'classe {i}')
     ax.plot([0,1],[0,1],'k--')
-    ax.set_xlabel('Mean predicted value')
-    ax.set_ylabel('Fraction of positives')
-    ax.set_title('Calibration Curves')
+    ax.set_xlabel('Valor médio predito')
+    ax.set_ylabel('Fração de positivos')
+    ax.set_title('Curvas de Calibração')
     ax.legend()
     fig.tight_layout()
     return fig
@@ -138,6 +138,6 @@ def plot_feature_importance(model, feature_names):
     ax.bar(range(len(importances)), importances[idx])
     ax.set_xticks(range(len(importances)))
     ax.set_xticklabels(np.array(feature_names)[idx], rotation=90)
-    ax.set_title('Feature Importances')
+    ax.set_title('Importância das Features')
     fig.tight_layout()
     return fig
