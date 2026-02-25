@@ -1,5 +1,4 @@
 
-from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
@@ -23,7 +22,7 @@ def train_models(df):
     X_test = test.drop(['Result','Season'], axis=1)
     y_test = test['Result']
 
-    # removed NaiveBayes (user requested) and added class_weight='balanced'
+    # Modelos com suporte a class_weight
     models = {
         "SVM": SVC(probability=True, kernel='rbf', random_state=42, class_weight='balanced'),
         "RandomForest": RandomForestClassifier(random_state=42, class_weight='balanced'),
