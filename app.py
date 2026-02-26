@@ -42,12 +42,93 @@ page = st.sidebar.selectbox("Navegação", [
 if page == "Visão Geral":
     st.header("Conjunto de Dados e Atributos")
     df = load_data("data/epl.csv")
-    st.write("Amostra do conjunto de dados:")
-    st.dataframe(df.head())
+    
+    # Criar coluna com resultado legível
+    resultado_map = {'H': 'Vitória Casa', 'D': 'Empate', 'A': 'Vitória Visitante'}
+    df['Resultado_Legivel'] = df['FTR'].map(resultado_map)
+    
+    # Renomear colunas para exibição amigável
+    colunas_legiveis = {
+        "Season_End_Year": "Ano Final da Temporada",
+        "Wk": "Semana",
+        "Date": "Data",
+        "HomeTeam": "Time da Casa",
+        "FTHG": "Gols Casa",
+        "FTAG": "Gols Visitante",
+        "AwayTeam": "Time Visitante",
+        "Resultado_Legivel": "Resultado Final",
+        "Season": "Temporada",
+        "Result": "Resultado Numérico"
+    }
+    df_exibicao = df.rename(columns=colunas_legiveis)
+    
+    st.subheader("📊 Estatísticas Gerais do Dataset")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total de Partidas", f"{len(df):,}")
+    with col2:
+        st.metric("Temporadas", f"{df['Season'].nunique()}")
+    with col3:
+        st.metric("Times Únicos", f"{pd.concat([df['HomeTeam'], df['AwayTeam']]).nunique()}")
+    with col4:
+        avg_goals = (df['FTHG'] + df['FTAG']).mean()
+        st.metric("Média Gols/Jogo", f"{avg_goals:.2f}")
+    
+    st.subheader("Amostra do conjunto de dados (primeiros 10 jogos)")
+    colunas_mostrar = ['Ano Final da Temporada', 'Semana', 'Data', 'Time da Casa', 'Gols Casa', 'Gols Visitante', 'Time Visitante', 'Resultado Final', 'Temporada']
+    st.dataframe(df_exibicao[colunas_mostrar].head(10))
+    
     features = calculate_team_stats(df)
-    st.write("Amostra das features geradas:")
-    st.dataframe(features.head())
-    st.write("Temporadas nos dados:", sorted(df['Season'].unique()))
+    
+    # Criar coluna com resultado legível nas features
+    resultado_numerico_map = {0: 'Vitória Casa', 1: 'Empate', 2: 'Vitória Visitante'}
+    features['Resultado_Legivel'] = features['Result'].map(resultado_numerico_map)
+    
+    # Renomear colunas das features para exibição amigável
+    colunas_features_legiveis = {
+        "gd_diff": "Diferença de Saldo de Gols",
+        "streak_diff": "Diferença de Sequência",
+        "weighted_diff": "Diferença Ponderada",
+        "Resultado_Legivel": "Resultado Final",
+        "Season": "Temporada"
+    }
+    features_exibicao = features.rename(columns=colunas_features_legiveis)
+    
+    st.subheader("Features Geradas")
+    st.info("💡 **Importante:** Os primeiros jogos de cada temporada têm features zeradas porque os times ainda não têm histórico acumulado. As features começam a ter valores após alguns jogos.")
+    
+    # Mostrar estatísticas das features
+    st.write("**Estatísticas das Features:**")
+    stats = features[['gd_diff', 'streak_diff', 'weighted_diff']].describe().transpose()
+    stats.index = ['Diferença de Saldo de Gols', 'Diferença de Sequência', 'Diferença Ponderada']
+    st.dataframe(stats.style.format("{:.3f}"))
+    
+    # Contagem de zeros
+    zeros_gd = (features['gd_diff'] == 0).sum()
+    zeros_streak = (features['streak_diff'] == 0).sum()
+    zeros_weighted = (features['weighted_diff'] == 0).sum()
+    total = len(features)
+    
+    st.write(f"**Percentual de valores zero:** Diferença Saldo: {zeros_gd/total*100:.1f}% | Diferença Sequência: {zeros_streak/total*100:.1f}% | Diferença Ponderada: {zeros_weighted/total*100:.1f}%")
+    
+    # Mostrar amostras diferentes
+    tab1, tab2, tab3 = st.tabs(["Primeiros 10 Jogos (Semana 1)", "Jogos 11-20 (Com Histórico)", "Jogos Aleatórios"])
+    
+    colunas_features_mostrar = ['Diferença de Saldo de Gols', 'Diferença de Sequência', 'Diferença Ponderada', 'Resultado Final', 'Temporada']
+    
+    with tab1:
+        st.write("Jogos iniciais da primeira temporada (features zeradas = esperado)")
+        st.dataframe(features_exibicao[colunas_features_mostrar].head(10))
+    
+    with tab2:
+        st.write("Jogos após acúmulo de histórico (features não-zeradas)")
+        st.dataframe(features_exibicao[colunas_features_mostrar].iloc[11:21])
+    
+    with tab3:
+        st.write("Amostra aleatória de 15 jogos")
+        st.dataframe(features_exibicao[colunas_features_mostrar].sample(15, random_state=42).sort_index())
+    
+    st.write("**Temporadas nos dados:**", sorted(df['Season'].unique()))
 
 if page == "Comparação de Modelos":
     st.header("Resumo dos Modelos Treinados")
@@ -60,7 +141,7 @@ if page == "Comparação de Modelos":
         dfm = pd.DataFrame(data, columns=["Model","Accuracy","F1","RPS"])
         st.dataframe(dfm.set_index('Model'))
         st.subheader("Gráfico de barras: acurácia média de teste")
-        fig, ax = plt.subplots(figsize=(6,4))
+        fig, ax = plt.subplots(figsize=(4,2))
         sns.barplot(x='Model', y='Accuracy', data=dfm, ax=ax)
         ax.set_ylim(0,1)
         st.pyplot(fig)
@@ -79,8 +160,14 @@ if page == "Avaliação e Métricas":
         # show classification report
         cr = ev['classification_report']
         st.write(pd.DataFrame(cr).transpose())
-        st.write("Distribuição real das classes (H,D,A):", ev.get('y_test_counts'))
-        st.write("Distribuição prevista das classes (H,D,A):", ev.get('preds_counts'))
+        
+        # Mostrar distribuição com nomes legíveis
+        classes_legiveis = {0: 'Vitória Casa', 1: 'Empate', 2: 'Vitória Visitante'}
+        y_test_dist = pd.Series(ev.get('y_test_counts')).rename(classes_legiveis)
+        preds_dist = pd.Series(ev.get('preds_counts')).rename(classes_legiveis)
+        
+        st.write("**Distribuição real das classes:**", dict(y_test_dist))
+        st.write("**Distribuição prevista das classes:**", dict(preds_dist))
         st.write("Pontuação Brier:", ev['brier_score'])
         if ev['roc_auc'] is not None:
             st.write("ROC AUC (macro):", ev['roc_auc'])
@@ -159,7 +246,7 @@ if page == "Distribuições e Importância de Features":
     st.subheader("Distribuições univariadas")
     cols = ['gd_diff','streak_diff','weighted_diff']
     for c in cols:
-        fig, ax = plt.subplots(figsize=(6,3))
+        fig, ax = plt.subplots(figsize=(3,2))
         sns.kdeplot(features[c].dropna(), shade=True, ax=ax)
         ax.set_title(c)
         st.pyplot(fig)

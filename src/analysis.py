@@ -59,15 +59,15 @@ def evaluate_model(model, X_test, y_test):
     }
 
 
-def plot_confusion_matrix(cm, labels=['H','D','A']):
+def plot_confusion_matrix(cm, labels=['Vitória Casa','Empate','Vitória Visitante']):
     fig, ax = plt.subplots(figsize=(5,4))
     im = ax.imshow(cm, cmap='Blues')
     ax.set_xticks(np.arange(len(labels)))
     ax.set_yticks(np.arange(len(labels)))
-    ax.set_xticklabels(labels)
+    ax.set_xticklabels(labels, rotation=45, ha='right')
     ax.set_yticklabels(labels)
-    ax.set_xlabel('Predicted')
-    ax.set_ylabel('Actual')
+    ax.set_xlabel('Previsto')
+    ax.set_ylabel('Real')
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, cm[i, j], ha='center', va='center', color='black')
@@ -79,11 +79,12 @@ def plot_confusion_matrix(cm, labels=['H','D','A']):
 def plot_roc(probs, y_test):
     from sklearn.metrics import roc_curve, auc
     y_bin = label_binarize(y_test, classes=[0,1,2])
+    classes_legiveis = ['Vitória Casa', 'Empate', 'Vitória Visitante']
     fig, ax = plt.subplots(figsize=(6,5))
     for i in range(y_bin.shape[1]):
         fpr, tpr, _ = roc_curve(y_bin[:, i], probs[:, i])
         roc_auc = auc(fpr, tpr)
-        ax.plot(fpr, tpr, label=f'classe {i} (AUC={roc_auc:.2f})')
+        ax.plot(fpr, tpr, label=f'{classes_legiveis[i]} (AUC={roc_auc:.2f})')
     ax.plot([0,1],[0,1],'k--')
     ax.set_xlabel('Taxa de Falsos Positivos')
     ax.set_ylabel('Taxa de Verdadeiros Positivos')
@@ -96,10 +97,11 @@ def plot_roc(probs, y_test):
 def plot_precision_recall(probs, y_test):
     from sklearn.metrics import precision_recall_curve
     y_bin = label_binarize(y_test, classes=[0,1,2])
+    classes_legiveis = ['Vitória Casa', 'Empate', 'Vitória Visitante']
     fig, ax = plt.subplots(figsize=(6,5))
     for i in range(y_bin.shape[1]):
         precision, recall, _ = precision_recall_curve(y_bin[:, i], probs[:, i])
-        ax.plot(recall, precision, label=f'classe {i}')
+        ax.plot(recall, precision, label=f'{classes_legiveis[i]}')
     ax.set_xlabel('Revocação')
     ax.set_ylabel('Precisão')
     ax.set_title('Curvas Precisão-Revocação')
@@ -111,11 +113,12 @@ def plot_precision_recall(probs, y_test):
 def plot_calibration_curve(probs, y_test, n_bins=10):
     # plot calibration for each class
     y_bin = label_binarize(y_test, classes=[0,1,2])
+    classes_legiveis = ['Vitória Casa', 'Empate', 'Vitória Visitante']
     fig, ax = plt.subplots(figsize=(6,5))
     for i in range(y_bin.shape[1]):
         prob_pos = probs[:, i]
         frac_pos, mean_pred = calibration_curve(y_bin[:, i], prob_pos, n_bins=n_bins)
-        ax.plot(mean_pred, frac_pos, marker='o', label=f'classe {i}')
+        ax.plot(mean_pred, frac_pos, marker='o', label=f'{classes_legiveis[i]}')
     ax.plot([0,1],[0,1],'k--')
     ax.set_xlabel('Valor médio predito')
     ax.set_ylabel('Fração de positivos')

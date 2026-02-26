@@ -18,8 +18,9 @@ def load_data(path):
 
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date')
-    # Season column used by feature engineering
-    df['Season'] = df['Date'].dt.year
+    # Use Season_End_Year as Season to keep full season stats together
+    # (a season like 1992-1993 should not be split by calendar year)
+    df['Season'] = df['Season_End_Year']
     # map full-time result to numeric codes used by feature engineering
     if 'FTR' in df.columns:
         df['Result'] = df['FTR'].map({'H':0,'D':1,'A':2})

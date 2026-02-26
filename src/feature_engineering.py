@@ -6,10 +6,17 @@ def calculate_team_stats(df):
 
     teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()
     team_data = {team: {'gd':0, 'history':[]} for team in teams}
+    current_season = None
 
     features = []
 
     for _, row in df.iterrows():
+        # reset team stats at season boundary to avoid accumulation across seasons
+        if current_season is None:
+            current_season = row['Season']
+        elif row['Season'] != current_season:
+            team_data = {team: {'gd':0, 'history':[]} for team in teams}
+            current_season = row['Season']
         home = row['HomeTeam']
         away = row['AwayTeam']
 
