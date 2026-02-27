@@ -8,17 +8,23 @@ from sklearn.preprocessing import label_binarize
 from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 
-from src.preprocessing import load_data
+from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 
 
-def prepare_evaluation_data(path="data/epl.csv"):
-    df = load_data(path)
-    features = calculate_team_stats(df)
-    train = features[features['Season'] <= 2018]
-    test = features[features['Season'] > 2018]
-    X_test = test.drop(['Result','Season'], axis=1)
-    y_test = test['Result'].astype(int).values
+def prepare_evaluation_data():
+    """
+    Prepara dados de teste seguindo a metodologia do artigo científico.
+    Usa dados de teste de 2014-2016 (2 temporadas).
+    """
+    # Carregar dados de teste (2014-2016)
+    df_test = load_multiple_seasons("data/data_2014_2016")
+    
+    # Calcular features para dados de teste
+    features_test = calculate_team_stats(df_test)
+    
+    X_test = features_test.drop(['Result','Season'], axis=1)
+    y_test = features_test['Result'].astype(int).values
     return X_test, y_test
 
 

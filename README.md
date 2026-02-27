@@ -6,7 +6,7 @@ This project replicates a scientific study predicting match outcomes in the Engl
 ## Methodology
 - Temporal split (no random split)
 - Incremental feature engineering (no data leakage)
-- Comparison of 4 models:
+- Comparison of 3 models:
     - SVM (RBF)
     - Random Forest
     - XGBoost
@@ -18,9 +18,11 @@ This project replicates a scientific study predicting match outcomes in the Engl
 - Weighted Streak
 - Home vs Away feature differences
 
-## Train/Test Split
-Train: 1993–2018  
-Test: 2019–2023
+## Train/Test Split (Conforme Artigo Científico)
+**Train:** 2005–2014 (9 temporadas)  
+**Test:** 2014–2016 (2 temporadas)
+
+Esta divisão segue exatamente a metodologia descrita no artigo científico *"Predictive analysis and modelling football results using"*.
 
 ## Instalação
 
@@ -38,6 +40,57 @@ python -m venv .venv
 ```bash
 pip install -r requirements.txt
 ```
+
+## 🚀 Sequência de Execução Completa
+
+### Para Primeiros Passos (Setup Inicial):
+
+```bash
+# 1. Verificar integridade dos dados
+python scripts\verify_all.py
+
+# 2. Treinar todos os modelos
+python main.py
+
+# 3. Visualizar métricas dos modelos
+python scripts\show_metrics.py
+
+# 4. Abrir interface Streamlit
+streamlit run app.py
+```
+
+### Para Gerar Conteúdo do Artigo Científico:
+
+```bash
+# Opção 1: Gerar tudo de uma vez (RECOMENDADO)
+python scripts\generate_all.py
+
+# Opção 2: Gerar individualmente
+# 1. Gerar todas as tabelas consolidadas
+python scripts\generate_tables.py
+
+# 2. Gerar todas as visualizações (300 DPI)
+python scripts\generate_figures.py
+
+# 3. Visualizar no Streamlit → "Análise Científica Consolidada"
+streamlit run app.py
+```
+
+### Ordem Recomendada de Execução:
+
+1. **Verificação** → `verify_all.py` - Valida estrutura dos dados
+2. **Treinamento** → `main.py` - Treina e salva modelos
+3. **Métricas** → `show_metrics.py` - Exibe performance
+4. **Tabelas & Figuras** → `generate_all.py` - Gera tudo de uma vez
+5. **Visualização** → `streamlit run app.py` - Interface interativa
+
+**Ou use os botões no Streamlit:**
+- Na página "Análise Científica Consolidada", clique em:
+  - 🔄 "Gerar Tabelas" para criar os CSVs
+  - 🎨 "Gerar Figuras" para criar os PNGs
+  - Os arquivos aparecem automaticamente após a geração!
+
+---
 
 ## Comandos para Executar
 
@@ -97,14 +150,59 @@ python scripts\gridsearch_advanced.py
 ```
 Otimiza hiperparâmetros dos modelos usando validação temporal. *Atenção: pode demorar bastante!*
 
+**Gerar tabelas consolidadas (NOVO):**
+```bash
+python scripts\generate_tables.py
+```
+Gera tabelas consolidadas para o artigo científico:
+- Resumo completo do dataset
+- Estatísticas descritivas das features
+- Comparação completa de modelos (incluindo baseline)
+- Performance por temporada
+- Matrizes de confusão detalhadas
+- Classificação por classe
+
+**Gerar visualizações avançadas (NOVO):**
+```bash
+python scripts\generate_figures.py
+```
+Gera figuras de alta qualidade (300 DPI) para o artigo científico:
+- Radar chart de comparação multi-métrica
+- Heatmap de correlação entre features
+- Boxplots de features por resultado
+- Comparação de feature importance (RF vs XGBoost)
+- Curvas de calibração comparativas
+- Gráfico de barras de métricas
+
+**Gerar tudo de uma vez (NOVO):**
+```bash
+python scripts\generate_all.py
+```
+Executa `generate_tables.py` e `generate_figures.py` em sequência.
+Gera todos os 10 CSVs + 6 PNGs de uma vez só!
+
 ## Estrutura do Projeto
 
 ```
 Projeto_ML/
 ├── data/
-│   └── epl.csv              # Dataset com 12,026 partidas da EPL (1993-2023)
+│   ├── data_2005_2014/      # Dados de treino (9 temporadas)
+│   │   ├── Season_2005_2006.csv
+│   │   ├── ... (outras temporadas)
+│   │   └── Season_2013_2014.csv
+│   └── data_2014_2016/      # Dados de teste (2 temporadas)
+│       ├── Season_2014_2015.csv
+│       └── Season_2015_2016.csv
 ├── models/
-│   └── trained_models.pkl   # Modelos treinados (SVM, RandomForest, XGBoost)
+│   ├── trained_models.pkl   # Modelos treinados (SVM, RandomForest, XGBoost)
+│   ├── tabela*.csv          # Tabelas consolidadas para artigo
+│   └── figures/             # Visualizações científicas (PNG 300 DPI)
+│       ├── fig1_radar_comparison.png
+│       ├── fig2_feature_correlation.png
+│       ├── fig3_boxplots_by_result.png
+│       ├── fig4_feature_importance_comparison.png
+│       ├── fig5_calibration_comparison.png
+│       └── fig6_metrics_comparison_bars.png
 ├── scripts/
 │   ├── verify_all.py        # Verificação completa do projeto
 │   ├── show_metrics.py      # Métricas dos modelos
@@ -112,28 +210,62 @@ Projeto_ML/
 │   ├── inspect_epl.py       # Inspeção do dataset
 │   ├── debug_features.py    # Debug de features
 │   ├── shap_analysis.py     # Análise SHAP de explicabilidade
-│   └── gridsearch_advanced.py  # Otimização de hiperparâmetros
+│   ├── gridsearch_advanced.py  # Otimização de hiperparâmetros
+│   ├── generate_tables.py   # 🆕 Geração de tabelas científicas
+│   ├── generate_figures.py  # 🆕 Geração de visualizações avançadas
+│   └── generate_all.py      # 🆕 Gera tudo de uma vez (tabelas + figuras)
 ├── src/
 │   ├── preprocessing.py     # Carregamento e preparação dos dados
 │   ├── feature_engineering.py  # Cálculo das features
 │   ├── train_models.py      # Treinamento dos modelos
 │   └── analysis.py          # Avaliação e visualizações
-├── app.py                   # Interface Streamlit
+├── app.py                   # Interface Streamlit (6 páginas)
 ├── main.py                  # Pipeline de treinamento
 ├── requirements.txt         # Dependências
-└── README.md               # Este arquivo
+├── README.md               # Este arquivo
+├── MELHORIAS.md            # Documentação de melhorias
+└── ANALISE_COMPLETUDE.md   # 🆕 Análise de completude vs artigo
 ```
 
 ## Resultados
 
-**Métricas dos Modelos (Test Set 2019-2023):**
-- **SVM:** Acurácia 46.53% | F1 0.4403 | RPS 0.4342 ⭐
-- **XGBoost:** Acurácia 47.26% | F1 0.3760 | RPS 0.4522
-- **RandomForest:** Acurácia 44.37% | F1 0.4048 | RPS 0.5203
+**Métricas dos Modelos (Test Set 2014-2016):**
+- **SVM:** Acurácia 44.08% | F1 0.2898 | RPS 0.4342 ⭐
+- **RandomForest:** Acurácia 43.82% | F1 0.2796 | RPS 0.4556
+- **XGBoost:** Acurácia 41.84% | F1 0.3035 | RPS 0.4468
+- **Baseline:** Acurácia 46.05% (sempre prever "Vitória Casa")
 
 **Sobre as Métricas:**
 - **RPS (Ranked Probability Score):** Quanto menor, melhor. Mede a qualidade das probabilidades preditas.
+- **Baseline:** Modelo trivial que sempre prevê a classe majoritária (Vitória Casa). Serve como referência mínima.
 - **O SVM** apresenta o melhor RPS, indicando melhor calibração de probabilidades.
+
+## 🆕 Análise Científica Consolidada
+
+### Tabelas para o Artigo
+Execute `python scripts\generate_tables.py` para gerar 6 tabelas em CSV:
+1. **Resumo do Dataset:** Total de partidas, distribuição de resultados, split treino/teste
+2. **Estatísticas Descritivas:** Mean, Std, Min, Quartis, Max para cada feature
+3. **Comparação de Modelos:** Todas as métricas (Accuracy, Precision, Recall, F1, RPS, Brier, ROC AUC)
+4. **Matrizes de Confusão:** Contagens absolutas e percentuais para cada modelo
+5. **Performance por Temporada:** Acurácia de cada modelo por temporada de teste
+6. **Classificação Detalhada:** Precision, Recall, F1, Support por classe e modelo
+
+### Visualizações para o Artigo
+Execute `python scripts\generate_figures.py` para gerar 6 figuras em PNG (300 DPI):
+1. **Radar Chart:** Comparação multi-métrica visual dos 3 modelos
+2. **Heatmap:** Correlação linear entre as features
+3. **Boxplots:** Distribuição de cada feature por tipo de resultado
+4. **Feature Importance:** Comparação RF vs XGBoost lado a lado
+5. **Calibração:** Curvas de calibração dos 3 modelos por classe
+6. **Barras:** Comparação visual de Accuracy, Precision, Recall, F1
+
+### Visualizar no Streamlit
+Acesse a nova página **"Análise Científica Consolidada"** no Streamlit para:
+- Visualizar todas as tabelas interativamente
+- Explorar as figuras com legendas descritivas
+- Fazer download dos CSVs para LaTeX/Word
+- Ver instruções de uso para o artigo
 
 ## Melhorias Implementadas
 

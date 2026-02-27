@@ -15,7 +15,7 @@ from src.analysis import (
     plot_confusion_matrix, plot_roc, plot_precision_recall,
     plot_calibration_curve, plot_feature_importance
 )
-from src.preprocessing import load_data
+from src.preprocessing import load_all_data
 from src.feature_engineering import calculate_team_stats
 
 st.set_page_config(layout="wide")
@@ -25,7 +25,9 @@ st.title("Scientific Replica – Previsão da EPL (Streamlit)")
 @st.cache_data
 def load_models():
     try:
-        return joblib.load("models/trained_models.pkl")
+        results_metadata = joblib.load("models/trained_models.pkl")
+        # Extrair apenas os modelos para compatibilidade
+        return results_metadata.get('models', results_metadata)
     except Exception:
         return {}
 
@@ -35,30 +37,28 @@ page = st.sidebar.selectbox("Navegação", [
     "Visão Geral",
     "Comparação de Modelos",
     "Avaliação e Métricas",
+    "Análise Científica Consolidada",
     "Ajuste de Hiperparâmetros",
     "Distribuições e Importância de Features"
 ])
 
 if page == "Visão Geral":
     st.header("Conjunto de Dados e Atributos")
-    df = load_data("data/epl.csv")
+    df = load_all_data()
     
     # Criar coluna com resultado legível
     resultado_map = {'H': 'Vitória Casa', 'D': 'Empate', 'A': 'Vitória Visitante'}
     df['Resultado_Legivel'] = df['FTR'].map(resultado_map)
     
-    # Renomear colunas para exibição amigável
+    # Renomear colunas para exibição amigável (apenas as que existem)
     colunas_legiveis = {
-        "Season_End_Year": "Ano Final da Temporada",
-        "Wk": "Semana",
         "Date": "Data",
         "HomeTeam": "Time da Casa",
         "FTHG": "Gols Casa",
         "FTAG": "Gols Visitante",
         "AwayTeam": "Time Visitante",
         "Resultado_Legivel": "Resultado Final",
-        "Season": "Temporada",
-        "Result": "Resultado Numérico"
+        "Season": "Temporada"
     }
     df_exibicao = df.rename(columns=colunas_legiveis)
     
@@ -73,6 +73,14 @@ if page == "Visão Geral":
     with col4:
         avg_goals = (df['FTHG'] + df['FTAG']).mean()
         st.metric("Média Gols/Jogo", f"{avg_goals:.2f}")
+    
+    # Informação sobre a divisão treino/teste
+    st.info(f"""
+    📋 **Metodologia do Artigo Científico:**
+    - **Período de Treinamento:** 2005-2014 (9 temporadas)
+    - **Período de Teste:** 2014-2016 (2 temporadas)
+    - **Total:** {len(df):,} partidas ({df['Season'].min()}-{df['Season'].max()})
+    """)
     
     # Distribuição de Resultados
     st.subheader("✓ Distribuição de Resultados")
@@ -112,7 +120,7 @@ if page == "Visão Geral":
         st.metric("⚽ Gols Fora de Casa", f"{int(total_away_goals):,}", f"{away_goals_pct:.1f}%")
     
     st.subheader("Amostra do conjunto de dados (primeiros 10 jogos)")
-    colunas_mostrar = ['Ano Final da Temporada', 'Semana', 'Data', 'Time da Casa', 'Gols Casa', 'Gols Visitante', 'Time Visitante', 'Resultado Final', 'Temporada']
+    colunas_mostrar = ['Data', 'Time da Casa', 'Gols Casa', 'Gols Visitante', 'Time Visitante', 'Resultado Final', 'Temporada']
     st.dataframe(df_exibicao[colunas_mostrar].head(10))
     
     features = calculate_team_stats(df)
@@ -185,7 +193,7 @@ if page == "Comparação de Modelos":
 
 if page == "Avaliação e Métricas":
     st.header("Avaliação do Modelo e Visualizações")
-    X_test, y_test = prepare_evaluation_data("data/epl.csv")
+    X_test, y_test = prepare_evaluation_data()
     if not models:
         st.warning("Nenhum modelo treinado encontrado. Execute `main.py` para treinar os modelos primeiro.")
     else:
@@ -233,11 +241,214 @@ if page == "Avaliação e Métricas":
         else:
             st.write("Importância das features não disponível para este modelo.")
 
+if page == "Análise Científica Consolidada":
+    st.header("📊 Análise Científica Consolidada")
+    st.markdown("Esta seção apresenta tabelas e visualizações consolidadas para inclusão no artigo científico.")
+    
+    # Verificar se os arquivos existem
+    import os
+    import subprocess
+    tabelas_existem = os.path.exists('models/tabela1_resumo_dataset.csv')
+    figuras_existem = os.path.exists('models/figures/fig1_radar_comparison.png')
+    
+    # Botões para gerar tabelas e figuras
+    col1, col2, col3 = st.columns([1, 1, 2])
+    
+    with col1:
+        if st.button("🔄 Gerar Tabelas", use_container_width=True):
+            with st.spinner("Gerando tabelas..."):
+                try:
+                    result = subprocess.run(
+                        ["python", "scripts/generate_tables.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    if result.returncode == 0:
+                        st.success("✅ Tabelas geradas com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Erro ao gerar tabelas: {result.stderr}")
+                except subprocess.TimeoutExpired:
+                    st.error("⏱️ Timeout: O processo demorou muito.")
+                except Exception as e:
+                    st.error(f"❌ Erro: {str(e)}")
+    
+    with col2:
+        if st.button("🎨 Gerar Figuras", use_container_width=True):
+            with st.spinner("Gerando figuras (pode demorar)..."):
+                try:
+                    result = subprocess.run(
+                        ["python", "scripts/generate_figures.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=120
+                    )
+                    if result.returncode == 0:
+                        st.success("✅ Figuras geradas com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Erro ao gerar figuras: {result.stderr}")
+                except subprocess.TimeoutExpired:
+                    st.error("⏱️ Timeout: O processo demorou muito.")
+                except Exception as e:
+                    st.error(f"❌ Erro: {str(e)}")
+    
+    with col3:
+        st.info(f"📊 Status: {'✅ Tabelas OK' if tabelas_existem else '❌ Tabelas faltando'} | {'✅ Figuras OK' if figuras_existem else '❌ Figuras faltando'}")
+    
+    st.markdown("---")
+    
+    if not tabelas_existem or not figuras_existem:
+        st.warning("⚠️ Tabelas e/ou figuras não encontradas. Use os botões acima ou execute:")
+        col_cmd1, col_cmd2 = st.columns(2)
+        with col_cmd1:
+            st.code("python scripts\\generate_tables.py", language="bash")
+        with col_cmd2:
+            st.code("python scripts\\generate_figures.py", language="bash")
+    
+    # Se os arquivos existirem, mostrar as tabelas e figuras
+    if tabelas_existem and figuras_existem:
+        # ============================================================
+        # TABELAS
+        # ============================================================
+        st.subheader("📋 Tabelas Consolidadas")
+        
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "Resumo Dataset", 
+            "Estatísticas Features", 
+            "Comparação Modelos",
+            "Performance por Temporada",
+            "Classificação Detalhada"
+        ])
+        
+        with tab1:
+            st.markdown("**Tabela 1: Resumo Completo do Dataset**")
+            df_tab1 = pd.read_csv('models/tabela1_resumo_dataset.csv')
+            st.dataframe(df_tab1, use_container_width=True, hide_index=True)
+            st.download_button(
+                "📥 Download CSV",
+                df_tab1.to_csv(index=False).encode('utf-8'),
+                "tabela1_resumo_dataset.csv",
+                "text/csv"
+            )
+        
+        with tab2:
+            st.markdown("**Tabela 2: Estatísticas Descritivas das Features**")
+            df_tab2 = pd.read_csv('models/tabela2_estatisticas_features.csv')
+            st.dataframe(df_tab2, use_container_width=True, hide_index=True)
+            st.download_button(
+                "📥 Download CSV",
+                df_tab2.to_csv(index=False).encode('utf-8'),
+                "tabela2_estatisticas_features.csv",
+                "text/csv"
+            )
+        
+        with tab3:
+            st.markdown("**Tabela 3: Comparação Completa de Modelos**")
+            df_tab3 = pd.read_csv('models/tabela3_comparacao_modelos.csv')
+            st.dataframe(df_tab3, use_container_width=True, hide_index=True)
+            st.info("💡 Note que o **Baseline** (prever sempre a classe majoritária) serve como referência mínima de performance.")
+            st.download_button(
+                "📥 Download CSV",
+                df_tab3.to_csv(index=False).encode('utf-8'),
+                "tabela3_comparacao_modelos.csv",
+                "text/csv"
+            )
+        
+        with tab4:
+            st.markdown("**Tabela 5: Performance por Temporada de Teste**")
+            df_tab5 = pd.read_csv('models/tabela5_performance_temporada.csv')
+            st.dataframe(df_tab5, use_container_width=True, hide_index=True)
+            st.download_button(
+                "📥 Download CSV",
+                df_tab5.to_csv(index=False).encode('utf-8'),
+                "tabela5_performance_temporada.csv",
+                "text/csv"
+            )
+        
+        with tab5:
+            st.markdown("**Tabela 6: Relatório de Classificação Detalhado por Modelo**")
+            modelo_sel = st.selectbox("Selecione o modelo:", ['SVM', 'RandomForest', 'XGBoost'])
+            df_tab6 = pd.read_csv(f'models/tabela6_classificacao_{modelo_sel.lower()}.csv')
+            st.dataframe(df_tab6, use_container_width=True)
+            st.download_button(
+                "📥 Download CSV",
+                df_tab6.to_csv().encode('utf-8'),
+                f"tabela6_classificacao_{modelo_sel.lower()}.csv",
+                "text/csv"
+            )
+        
+        st.markdown("---")
+        
+        # ============================================================
+        # FIGURAS
+        # ============================================================
+        st.subheader("📈 Visualizações Científicas")
+        
+        fig_tab1, fig_tab2, fig_tab3, fig_tab4, fig_tab5, fig_tab6 = st.tabs([
+            "Radar Multi-Métrica",
+            "Correlação Features",
+            "Boxplots por Resultado",
+            "Feature Importance",
+            "Calibração",
+            "Comparação Barras"
+        ])
+        
+        with fig_tab1:
+            st.markdown("**Figura 1: Comparação Multi-Métrica (Radar Chart)**")
+            st.image('models/figures/fig1_radar_comparison.png', use_container_width=True)
+            st.caption("Comparação visual de todas as métricas de performance dos três modelos. Quanto mais próximo da borda externa, melhor a performance.")
+        
+        with fig_tab2:
+            st.markdown("**Figura 2: Matriz de Correlação entre Features**")
+            st.image('models/figures/fig2_feature_correlation.png', use_container_width=True)
+            st.caption("Heatmap mostrando a correlação linear entre as três features utilizadas. Valores próximos de 1/-1 indicam forte correlação positiva/negativa.")
+        
+        with fig_tab3:
+            st.markdown("**Figura 3: Distribuição das Features por Resultado**")
+            st.image('models/figures/fig3_boxplots_by_result.png', use_container_width=True)
+            st.caption("Boxplots mostrando como cada feature se distribui por tipo de resultado (Vitória Casa, Empate, Vitória Visitante).")
+        
+        with fig_tab4:
+            st.markdown("**Figura 4: Comparação de Importância de Features**")
+            st.image('models/figures/fig4_feature_importance_comparison.png', use_container_width=True)
+            st.caption("Comparação lado a lado da importância das features segundo Random Forest e XGBoost.")
+        
+        with fig_tab5:
+            st.markdown("**Figura 5: Curvas de Calibração por Classe**")
+            st.image('models/figures/fig5_calibration_comparison.png', use_container_width=True)
+            st.caption("Análise de calibração das probabilidades preditas. Curvas próximas da diagonal indicam boa calibração.")
+        
+        with fig_tab6:
+            st.markdown("**Figura 6: Comparação de Métricas (Barras Agrupadas)**")
+            st.image('models/figures/fig6_metrics_comparison_bars.png', use_container_width=True)
+            st.caption("Visualização comparativa das principais métricas (Accuracy, Precision, Recall, F1-Score) entre os três modelos.")
+        
+        st.markdown("---")
+        st.success("✅ Todas as tabelas e figuras foram geradas e podem ser exportadas para o artigo científico!")
+        
+        with st.expander("ℹ️ Como usar essas tabelas e figuras"):
+            st.markdown("""
+            **Para o Artigo Científico:**
+            1. As **tabelas CSV** podem ser formatadas em LaTeX usando ferramentas online
+            2. As **figuras PNG** (300 DPI) estão prontas para inclusão direta
+            3. Cada figura tem legenda descritiva para referência
+            
+            **Scripts de Geração:**
+            - `python scripts/generate_tables.py` - Regenerar tabelas
+            - `python scripts/generate_figures.py` - Regenerar figuras
+            
+            **Localização dos Arquivos:**
+            - Tabelas: `models/tabela*.csv`
+            - Figuras: `models/figures/fig*.png`
+            """)
+
 if page == "Ajuste de Hiperparâmetros":
     st.header("Ajuste rápido de hiperparâmetros (grades pequenas)")
-    df = load_data("data/epl.csv")
+    df = load_all_data()
     features = calculate_team_stats(df)
-    train = features[features['Season'] <= 2018]
+    train = features[features['Season'] <= 2014]  # Treino: 2005-2014
     X_train = train.drop(['Result','Season'], axis=1)
     y_train = train['Result']
 
@@ -278,7 +489,7 @@ if page == "Ajuste de Hiperparâmetros":
 
 if page == "Distribuições e Importância de Features":
     st.header("Distribuições das features e importância")
-    df = load_data("data/epl.csv")
+    df = load_all_data()
     features = calculate_team_stats(df)
     st.subheader("Distribuições univariadas")
     cols = ['gd_diff','streak_diff','weighted_diff']
