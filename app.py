@@ -314,10 +314,11 @@ if page == "Análise Científica Consolidada":
         # ============================================================
         st.subheader("📋 Tabelas Consolidadas")
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "Resumo Dataset", 
             "Estatísticas Features", 
             "Comparação Modelos",
+            "Matrizes de Confusão",
             "Performance por Temporada",
             "Classificação Detalhada"
         ])
@@ -357,6 +358,30 @@ if page == "Análise Científica Consolidada":
             )
         
         with tab4:
+            st.markdown("**Tabela 4: Matrizes de Confusão Detalhadas**")
+            modelo_cm = st.selectbox("Selecione o modelo:", ['SVM', 'RandomForest', 'XGBoost'], key='cm_selector')
+            df_cm = pd.read_csv(f'models/tabela4_cm_{modelo_cm.lower()}.csv')
+            
+            st.markdown(f"**Matriz de Confusão - {modelo_cm}**")
+            st.dataframe(df_cm, use_container_width=True)
+            
+            st.markdown("**Como interpretar:**")
+            st.markdown("""
+            - **Linhas**: Classes reais das partidas
+            - **Colunas**: Classes preditas pelo modelo
+            - **Diagonal principal** (verde): Predições corretas
+            - **Fora da diagonal**: Erros de classificação
+            """)
+            
+            st.download_button(
+                "📥 Download CSV",
+                df_cm.to_csv().encode('utf-8'),
+                f"tabela4_cm_{modelo_cm.lower()}.csv",
+                "text/csv",
+                key=f'download_cm_{modelo_cm}'
+            )
+        
+        with tab5:
             st.markdown("**Tabela 5: Performance por Temporada de Teste**")
             df_tab5 = pd.read_csv('models/tabela5_performance_temporada.csv')
             st.dataframe(df_tab5, use_container_width=True, hide_index=True)
@@ -367,7 +392,7 @@ if page == "Análise Científica Consolidada":
                 "text/csv"
             )
         
-        with tab5:
+        with tab6:
             st.markdown("**Tabela 6: Relatório de Classificação Detalhado por Modelo**")
             modelo_sel = st.selectbox("Selecione o modelo:", ['SVM', 'RandomForest', 'XGBoost'])
             df_tab6 = pd.read_csv(f'models/tabela6_classificacao_{modelo_sel.lower()}.csv')
