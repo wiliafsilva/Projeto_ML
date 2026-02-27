@@ -74,6 +74,43 @@ if page == "Visão Geral":
         avg_goals = (df['FTHG'] + df['FTAG']).mean()
         st.metric("Média Gols/Jogo", f"{avg_goals:.2f}")
     
+    # Distribuição de Resultados
+    st.subheader("✓ Distribuição de Resultados")
+    result_counts = df['FTR'].value_counts()
+    total_games = len(df)
+    
+    # Resultados das partidas
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        home_wins = result_counts.get('H', 0)
+        home_pct = (home_wins / total_games) * 100
+        st.metric("🏠 Vitória Casa", f"{home_wins:,}", f"{home_pct:.1f}%")
+    with col2:
+        draws = result_counts.get('D', 0)
+        draw_pct = (draws / total_games) * 100
+        st.metric("🤝 Empate", f"{draws:,}", f"{draw_pct:.1f}%")
+    with col3:
+        away_wins = result_counts.get('A', 0)
+        away_pct = (away_wins / total_games) * 100
+        st.metric("✈️ Vitória Visitante", f"{away_wins:,}", f"{away_pct:.1f}%")
+    
+    # Distribuição de Gols (3 colunas para melhor alinhamento)
+    st.write("")  # Espaçamento
+    total_home_goals = df['FTHG'].sum()
+    total_away_goals = df['FTAG'].sum()
+    total_goals = total_home_goals + total_away_goals
+    home_goals_pct = (total_home_goals / total_goals) * 100
+    away_goals_pct = (total_away_goals / total_goals) * 100
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        total_goals_display = int(total_goals)
+        st.metric("⚽ Total de Gols", f"{total_goals_display:,}", "")
+    with col2:
+        st.metric("⚽ Gols em Casa", f"{int(total_home_goals):,}", f"{home_goals_pct:.1f}%")
+    with col3:
+        st.metric("⚽ Gols Fora de Casa", f"{int(total_away_goals):,}", f"{away_goals_pct:.1f}%")
+    
     st.subheader("Amostra do conjunto de dados (primeiros 10 jogos)")
     colunas_mostrar = ['Ano Final da Temporada', 'Semana', 'Data', 'Time da Casa', 'Gols Casa', 'Gols Visitante', 'Time Visitante', 'Resultado Final', 'Temporada']
     st.dataframe(df_exibicao[colunas_mostrar].head(10))
