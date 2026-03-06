@@ -1,11 +1,9 @@
-
 import streamlit as st
 import joblib
 import pandas as pd
-import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
@@ -204,7 +202,11 @@ if page == "Avaliação e Métricas":
         ev = evaluate_model(info['model'], X_test, y_test)
         # show classification report
         cr = ev['classification_report']
-        st.write(pd.DataFrame(cr).transpose())
+        if isinstance(cr, dict):
+            cr_list = list(cr.items())
+            st.write(pd.DataFrame(cr_list, columns=['Metric', 'Value']))
+        else:
+            st.warning("Wrong classification report format.")
         
         # Mostrar distribuição com nomes legíveis
         classes_legiveis = {0: 'Vitória Casa', 1: 'Empate', 2: 'Vitória Visitante'}
@@ -476,6 +478,7 @@ if page == "Ajuste de Hiperparâmetros":
     train = features[features['Season'] <= 2014]  # Treino: 2005-2014
     X_train = train.drop(['Result','Season'], axis=1)
     y_train = train['Result']
+    results = pd.DataFrame()
 
     tune_model = st.selectbox("Escolha o modelo para ajustar", ["SVM","RandomForest","XGBoost"])
     if st.button("Executar ajuste"):

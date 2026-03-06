@@ -4,14 +4,16 @@
 This project replicates a scientific study predicting match outcomes in the English Premier League using Machine Learning.
 
 ## Methodology
+
 - Temporal split (no random split)
 - Incremental feature engineering (no data leakage)
 - Comparison of 3 models:
-    - SVM (RBF)
-    - Random Forest
-    - XGBoost
+  - SVM (RBF)
+  - Random Forest
+  - XGBoost
 
 ## Features Implemented
+
 - Cumulative Goal Difference
 - Last 5 matches average goals
 - Streak (last 5 matches)
@@ -19,6 +21,7 @@ This project replicates a scientific study predicting match outcomes in the Engl
 - Home vs Away feature differences
 
 ## Train/Test Split (Conforme Artigo Científico)
+
 **Train:** 2005–2014 (9 temporadas)  
 **Test:** 2014–2016 (2 temporadas)
 
@@ -26,24 +29,27 @@ Esta divisão segue exatamente a metodologia descrita no artigo científico *"Pr
 
 ## Instalação
 
-### 1. Criar ambiente virtual:
+### 1. Criar ambiente virtual
+
 ```bash
 python -m venv .venv
 ```
 
-### 2. Ativar ambiente virtual:
+### 2. Ativar ambiente virtual
+
 ```bash
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 3. Instalar dependências:
+### 3. Instalar dependências
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ## 🚀 Sequência de Execução Completa
 
-### Para Primeiros Passos (Setup Inicial):
+### Para Primeiros Passos (Setup Inicial)
 
 ```bash
 # 1. Verificar integridade dos dados
@@ -59,7 +65,7 @@ python scripts\show_metrics.py
 streamlit run app.py
 ```
 
-### Para Gerar Conteúdo do Artigo Científico:
+### Para Gerar Conteúdo do Artigo Científico
 
 ```bash
 # Opção 1: Gerar tudo de uma vez (RECOMENDADO)
@@ -76,7 +82,7 @@ python scripts\generate_figures.py
 streamlit run app.py
 ```
 
-### Ordem Recomendada de Execução:
+### Ordem Recomendada de Execução
 
 1. **Verificação** → `verify_all.py` - Valida estrutura dos dados
 2. **Treinamento** → `main.py` - Treina e salva modelos
@@ -85,6 +91,7 @@ streamlit run app.py
 5. **Visualização** → `streamlit run app.py` - Interface interativa
 
 **Ou use os botões no Streamlit:**
+
 - Na página "Análise Científica Consolidada", clique em:
   - 🔄 "Gerar Tabelas" para criar os CSVs
   - 🎨 "Gerar Figuras" para criar os PNGs
@@ -97,11 +104,13 @@ streamlit run app.py
 ### Pipeline Principal
 
 **Treinar modelos:**
+
 ```bash
 python main.py
 ```
 
 **Executar interface Streamlit:**
+
 ```bash
 streamlit run app.py
 ```
@@ -109,52 +118,69 @@ streamlit run app.py
 ### Scripts de Análise e Verificação
 
 **Verificar todos os dados do projeto:**
+
 ```bash
 python scripts\verify_all.py
 ```
+
 Exibe estatísticas completas do dataset, features, modelos, divisão treino/teste e distribuição por temporada.
 
 **Mostrar métricas dos modelos:**
+
 ```bash
 python scripts\show_metrics.py
 ```
+
 Mostra acurácia, F1 Score e RPS de todos os modelos treinados.
 
 **Testar cálculo de features:**
+
 ```bash
 python scripts\test_features.py
 ```
+
 Testa o cálculo das features e mostra estatísticas detalhadas sobre valores zeros.
 
 **Inspecionar dataset EPL:**
+
 ```bash
 python scripts\inspect_epl.py
 ```
+
 Analisa o dataset bruto: total de partidas, temporadas, gols, e distribuição de resultados.
 
 **Debug de features:**
+
 ```bash
 python scripts\debug_features.py
 ```
+
 Script de debug para investigar problemas no cálculo de features.
 
 **Análise SHAP (explicabilidade):**
+
 ```bash
 python scripts\shap_analysis.py
 ```
+
 Analisa a importância das features usando SHAP valores. Gera gráficos mostrando quais features têm maior impacto nas previsões.
 
 **GridSearch avançado (otimização):**
+
 ```bash
 python scripts\gridsearch_advanced.py
 ```
+
 Otimiza hiperparâmetros dos modelos usando validação temporal. *Atenção: pode demorar bastante!*
 
 **Gerar tabelas consolidadas (NOVO):**
+
 ```bash
 python scripts\generate_tables.py
 ```
+
 Gera tabelas consolidadas para o artigo científico:
+
 - Resumo completo do dataset
 - Estatísticas descritivas das features
 - Comparação completa de modelos (incluindo baseline)
@@ -163,10 +189,13 @@ Gera tabelas consolidadas para o artigo científico:
 - Classificação por classe
 
 **Gerar visualizações avançadas (NOVO):**
+
 ```bash
 python scripts\generate_figures.py
 ```
+
 Gera figuras de alta qualidade (300 DPI) para o artigo científico:
+
 - Radar chart de comparação multi-métrica
 - Heatmap de correlação entre features
 - Boxplots de features por resultado
@@ -175,15 +204,17 @@ Gera figuras de alta qualidade (300 DPI) para o artigo científico:
 - Gráfico de barras de métricas
 
 **Gerar tudo de uma vez (NOVO):**
+
 ```bash
 python scripts\generate_all.py
 ```
+
 Executa `generate_tables.py` e `generate_figures.py` em sequência.
 Gera todos os 10 CSVs + 6 PNGs de uma vez só!
 
 ## Estrutura do Projeto
 
-```
+```md
 Projeto_ML/
 ├── data/
 │   ├── data_2005_2014/      # Dados de treino (9 temporadas)
@@ -230,12 +261,14 @@ Projeto_ML/
 ## Resultados
 
 **Métricas dos Modelos (Test Set 2014-2016):**
+
 - **SVM:** Acurácia 44.08% | F1 0.2898 | RPS 0.4342 ⭐
 - **RandomForest:** Acurácia 43.82% | F1 0.2796 | RPS 0.4556
 - **XGBoost:** Acurácia 41.84% | F1 0.3035 | RPS 0.4468
 - **Baseline:** Acurácia 46.05% (sempre prever "Vitória Casa")
 
 **Sobre as Métricas:**
+
 - **RPS (Ranked Probability Score):** Quanto menor, melhor. Mede a qualidade das probabilidades preditas.
 - **Baseline:** Modelo trivial que sempre prevê a classe majoritária (Vitória Casa). Serve como referência mínima.
 - **O SVM** apresenta o melhor RPS, indicando melhor calibração de probabilidades.
@@ -243,7 +276,9 @@ Projeto_ML/
 ## 🆕 Análise Científica Consolidada
 
 ### Tabelas para o Artigo
+
 Execute `python scripts\generate_tables.py` para gerar 6 tabelas em CSV:
+
 1. **Resumo do Dataset:** Total de partidas, distribuição de resultados, split treino/teste
 2. **Estatísticas Descritivas:** Mean, Std, Min, Quartis, Max para cada feature
 3. **Comparação de Modelos:** Todas as métricas (Accuracy, Precision, Recall, F1, RPS, Brier, ROC AUC)
@@ -252,7 +287,9 @@ Execute `python scripts\generate_tables.py` para gerar 6 tabelas em CSV:
 6. **Classificação Detalhada:** Precision, Recall, F1, Support por classe e modelo
 
 ### Visualizações para o Artigo
+
 Execute `python scripts\generate_figures.py` para gerar 6 figuras em PNG (300 DPI):
+
 1. **Radar Chart:** Comparação multi-métrica visual dos 3 modelos
 2. **Heatmap:** Correlação linear entre as features
 3. **Boxplots:** Distribuição de cada feature por tipo de resultado
@@ -261,7 +298,9 @@ Execute `python scripts\generate_figures.py` para gerar 6 figuras em PNG (300 DP
 6. **Barras:** Comparação visual de Accuracy, Precision, Recall, F1
 
 ### Visualizar no Streamlit
+
 Acesse a nova página **"Análise Científica Consolidada"** no Streamlit para:
+
 - Visualizar todas as tabelas interativamente
 - Explorar as figuras com legendas descritivas
 - Fazer download dos CSVs para LaTeX/Word
@@ -270,20 +309,26 @@ Acesse a nova página **"Análise Científica Consolidada"** no Streamlit para:
 ## Melhorias Implementadas
 
 ### 1. Calibração de Probabilidades
+
 Os modelos RandomForest e XGBoost agora usam **calibração isotônica** para melhorar as probabilidades preditas. A calibração é aplicada automaticamente durante o treinamento e o modelo calibrado é usado apenas se melhorar o RPS.
 
 ### 2. Balanceamento de Classes
+
 - **SVM e RandomForest:** Usam `class_weight='balanced'`
 - **XGBoost:** Usa `sample_weight` calculado para balancear as classes
 
 ### 3. Análise de Explicabilidade (SHAP)
+
 Execute `python scripts\shap_analysis.py` para:
+
 - Ver ranking de importância das features por modelo
 - Gerar gráficos SHAP mostrando impacto de cada feature
 - Entender quais características mais influenciam as previsões
 
 ### 4. Otimização de Hiperparâmetros
+
 Execute `python scripts\gridsearch_advanced.py` para:
+
 - Busca em grade com validação temporal (TimeSeriesSplit)
 - Otimização focada em minimizar RPS
 - Salva melhores parâmetros em `models/optimized_models.pkl`
@@ -291,18 +336,21 @@ Execute `python scripts\gridsearch_advanced.py` para:
 ## Sobre os Modelos
 
 ### SVM (Support Vector Machine)
+
 - **Kernel RBF** para capturar relações não-lineares
 - **Vantagens:** Boa calibração de probabilidades, eficaz em espaços de alta dimensão
 - **Desvantagens:** Lento em grandes datasets, sensível à escala
 - **Uso:** Melhor quando probabilidades calibradas são importantes
 
 ### RandomForest
+
 - **Ensemble de árvores** (bagging)
 - **Vantagens:** Robusto, fornece importâncias de features, pouco pré-processamento
 - **Desvantagens:** Probabilidades podem não ser bem calibradas
 - **Uso:** Bom para análise exploratória e interpretabilidade
 
 ### XGBoost
+
 - **Gradient boosting otimizado**
 - **Vantagens:** Alta acurácia, captura padrões complexos, rápido
 - **Desvantagens:** Requer ajuste de hiperparâmetros, pode sobreajustar
