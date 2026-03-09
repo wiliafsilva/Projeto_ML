@@ -11,9 +11,6 @@ build/
 dist/
 *.egg-info/
 
-# VS Code
-.vscode/
-
 # Trained models (too large for Git)
-models/*.pkl
+models/*
 *.pkl

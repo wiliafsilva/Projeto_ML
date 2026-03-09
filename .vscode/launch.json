@@ -1,0 +1,44 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Verify All",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/verify_all.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Train Models",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Show Metrics",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/show_metrics.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Generate All",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/generate_all.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Streamlit App",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": ["run", "app.py"],
+            "console": "integratedTerminal",
+            "env": {
+                "STREAMLIT_DISABLE_VCSWARNING": "1"
+            }
+        }
+    ]
+}

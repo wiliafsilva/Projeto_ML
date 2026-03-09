@@ -1,6 +1,7 @@
 
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.calibration import CalibratedClassifierCV
@@ -52,7 +53,8 @@ def train_models(df_train, df_test):
     models = {
         "SVM": SVC(probability=True, kernel='rbf', random_state=42, class_weight='balanced'),
         "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
-        "XGBoost": XGBClassifier(eval_metric='mlogloss', random_state=42, n_estimators=100)
+        "XGBoost": XGBClassifier(eval_metric='mlogloss', random_state=42, n_estimators=100),
+        "NaiveBayes": GaussianNB(),
     }
 
     results = {}
