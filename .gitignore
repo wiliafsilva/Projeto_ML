@@ -12,5 +12,5 @@ dist/
 *.egg-info/
 
 # Trained models (too large for Git)
-models/*.pkl
+models/*
 *.pkl
