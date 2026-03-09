@@ -14,6 +14,7 @@ import numpy as np
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
 from xgboost import XGBClassifier
 from sklearn.metrics import make_scorer, accuracy_score, f1_score
 from sklearn.utils.class_weight import compute_sample_weight
@@ -162,6 +163,35 @@ for param, value in xgb_grid.best_params_.items():
 print(f"✓ Melhor RPS (CV): {-xgb_grid.best_score_:.4f}")
 
 # ============================================================
+# 4. NaiveBayes - GridSearch
+# ============================================================
+print("\n" + "="*60)
+print("[4] NaiveBayes (GaussianNB) - Otimizando hiperparâmetros")
+print("="*60)
+
+nb_param_grid = {
+    'var_smoothing': [1e-9, 1e-8, 1e-7, 1e-6]
+}
+
+print(f"Testando {len(nb_param_grid['var_smoothing'])} combinações...")
+
+nb_grid = GridSearchCV(
+    GaussianNB(),
+    nb_param_grid,
+    cv=tscv,
+    scoring=rps_scorer_fn,
+    n_jobs=-1,
+    verbose=1
+)
+
+nb_grid.fit(X_train, y_train)
+
+print(f"\n✓ Melhores parâmetros NaiveBayes:")
+for param, value in nb_grid.best_params_.items():
+    print(f"  {param}: {value}")
+print(f"✓ Melhor RPS (CV): {-nb_grid.best_score_:.4f}")
+
+# ============================================================
 # Salvar resultados
 # ============================================================
 print("\n" + "="*60)
@@ -183,7 +213,12 @@ best_models = {
         'model': xgb_grid.best_estimator_,
         'params': xgb_grid.best_params_,
         'cv_rps': -xgb_grid.best_score_
-    }
+    },
+    'NaiveBayes_optimized': {
+        'model': nb_grid.best_estimator_,
+        'params': nb_grid.best_params_,
+        'cv_rps': -nb_grid.best_score_
+    },
 }
 
 joblib.dump(best_models, 'models/optimized_models.pkl')
@@ -193,7 +228,8 @@ print("✓ Modelos otimizados salvos em: models/optimized_models.pkl")
 results_df = pd.DataFrame({
     'SVM': [svm_grid.best_params_, -svm_grid.best_score_],
     'RandomForest': [rf_grid.best_params_, -rf_grid.best_score_],
-    'XGBoost': [xgb_grid.best_params_, -xgb_grid.best_score_]
+    'XGBoost': [xgb_grid.best_params_, -xgb_grid.best_score_],
+    'NaiveBayes': [nb_grid.best_params_, -nb_grid.best_score_],
 }, index=['best_params', 'best_rps_cv']).T
 
 print(f"\n✓ Resumo dos resultados:")

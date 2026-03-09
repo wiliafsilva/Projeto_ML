@@ -7,10 +7,11 @@ This project replicates a scientific study predicting match outcomes in the Engl
 
 - Temporal split (no random split)
 - Incremental feature engineering (no data leakage)
-- Comparison of 3 models:
+- Comparison of 4 models:
   - SVM (RBF)
   - Random Forest
   - XGBoost
+  - Naive Bayes (Gaussian)
 
 ## Features Implemented
 
@@ -225,7 +226,7 @@ Projeto_ML/
 │       ├── Season_2014_2015.csv
 │       └── Season_2015_2016.csv
 ├── models/
-│   ├── trained_models.pkl   # Modelos treinados (SVM, RandomForest, XGBoost)
+│   ├── trained_models.pkl   # Modelos treinados (SVM, RandomForest, XGBoost, NaiveBayes)
 │   ├── tabela*.csv          # Tabelas consolidadas para artigo
 │   └── figures/             # Visualizações científicas (PNG 300 DPI)
 │       ├── fig1_radar_comparison.png
@@ -355,3 +356,10 @@ Execute `python scripts\gridsearch_advanced.py` para:
 - **Vantagens:** Alta acurácia, captura padrões complexos, rápido
 - **Desvantagens:** Requer ajuste de hiperparâmetros, pode sobreajustar
 - **Uso:** Melhor quando acurácia máxima é prioridade
+
+### Naive Bayes (Gaussian)
+
+- **Modelo probabilístico simples** que assume independência condicional entre features, usando distribuição normal para variáveis contínuas.
+- **Vantagens:** Extremamente rápido para treinar e prever, pouco sujeito a overfitting, bom baseline probabilístico.
+- **Desvantagens:** A hipótese de independência raramente é verdadeira, o que pode limitar a acurácia máxima.
+- **Uso:** Útil como modelo de referência leve e como comparação adicional às abordagens de ensemble mais complexas.
