@@ -64,8 +64,8 @@ def train_models(df_train, df_test):
         print(f"Treinando: {name}")
         print(f"{'='*60}")
         
-        # Treinar com sample_weight para XGBoost
-        if name == "XGBoost":
+        # Treinar com sample_weight para XGBoost e NaiveBayes
+        if name in ["XGBoost", "NaiveBayes"]:
             model.fit(X_train, y_train, sample_weight=sample_weights)
         else:
             model.fit(X_train, y_train)
@@ -80,11 +80,11 @@ def train_models(df_train, df_test):
         print(f"Modelo Base - Acurácia: {acc:.4f} | F1: {f1:.4f} | RPS: {score_rps:.4f}")
 
         # Calibrar probabilidades (exceto SVM que já tem boa calibração)
-        if name in ["RandomForest", "XGBoost"]:
+        if name in ["RandomForest", "XGBoost", "NaiveBayes"]:
             print(f"Aplicando calibração de probabilidades...")
             calibrated_model = CalibratedClassifierCV(model, method='isotonic', cv=3)
             
-            if name == "XGBoost":
+            if name in ["XGBoost", "NaiveBayes"]:
                 calibrated_model.fit(X_train, y_train, sample_weight=sample_weights)
             else:
                 calibrated_model.fit(X_train, y_train)

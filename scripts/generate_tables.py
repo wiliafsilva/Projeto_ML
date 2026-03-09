@@ -286,9 +286,14 @@ for name, info in models.items():
     
     # Converter para DataFrame
     report_df = pd.DataFrame(report).transpose()
-    
-    # Formatar suporte como inteiro
+
+    # Ajustar suporte da linha 'accuracy' para o total de amostras
     if 'support' in report_df.columns:
+        # Somar suporte apenas das classes definidas em 'classes'
+        existing_classes = [c for c in classes if c in report_df.index]
+        total_support = report_df.loc[existing_classes, 'support'].sum()
+        report_df.loc['accuracy', 'support'] = total_support
+        # Formatar suporte como inteiro
         report_df['support'] = report_df['support'].astype(int)
     
     print(report_df.round(4).to_string())

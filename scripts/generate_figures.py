@@ -149,7 +149,7 @@ for idx, col in enumerate(feature_cols):
     ax = axes[idx]
     data_to_plot = [features_all[features_all['Result'] == i][col].dropna() for i in range(3)]
     
-    bp = ax.boxplot(data_to_plot, labels=['Vitória Casa', 'Empate', 'Vitória Visitante'],
+    bp = ax.boxplot(data_to_plot, tick_labels=['Vitória Casa', 'Empate', 'Vitória Visitante'],
                     patch_artist=True, showmeans=True)
     
     # Colorir boxes

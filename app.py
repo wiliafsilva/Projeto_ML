@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
 from xgboost import XGBClassifier
 
 from src.analysis import (
@@ -203,10 +204,19 @@ if page == "Avaliação e Métricas":
         # show classification report
         cr = ev['classification_report']
         if isinstance(cr, dict):
-            cr_list = list(cr.items())
-            st.write(pd.DataFrame(cr_list, columns=['Metric', 'Value']))
+            # Expandir o classification report corretamente
+            cr_data = []
+            for key, value in cr.items():
+                if isinstance(value, dict):
+                    # Para classes e médias (macro/weighted/micro avg)
+                    for metric, score in value.items():
+                        cr_data.append([f"{key} - {metric}", f"{score:.4f}"])
+                else:
+                    # Para métricas simples como accuracy
+                    cr_data.append([key, f"{value:.4f}"])
+            st.dataframe(pd.DataFrame(cr_data, columns=['Métrica', 'Valor']), width='stretch', hide_index=True)
         else:
-            st.warning("Wrong classification report format.")
+            st.warning("Formato incorreto do classification report.")
         
         # Mostrar distribuição com nomes legíveis
         classes_legiveis = {0: 'Vitória Casa', 1: 'Empate', 2: 'Vitória Visitante'}
@@ -257,13 +267,15 @@ if page == "Análise Científica Consolidada":
     col1, col2, col3 = st.columns([1, 1, 2])
     
     with col1:
-        if st.button("🔄 Gerar Tabelas", use_container_width=True):
+        if st.button("🔄 Gerar Tabelas", width='stretch'):
             with st.spinner("Gerando tabelas..."):
                 try:
                     result = subprocess.run(
                         ["python", "scripts/generate_tables.py"],
                         capture_output=True,
                         text=True,
+                        encoding='utf-8',
+                        errors='replace',
                         timeout=60
                     )
                     if result.returncode == 0:
@@ -277,13 +289,15 @@ if page == "Análise Científica Consolidada":
                     st.error(f"❌ Erro: {str(e)}")
     
     with col2:
-        if st.button("🎨 Gerar Figuras", use_container_width=True):
+        if st.button("🎨 Gerar Figuras", width='stretch'):
             with st.spinner("Gerando figuras (pode demorar)..."):
                 try:
                     result = subprocess.run(
                         ["python", "scripts/generate_figures.py"],
                         capture_output=True,
                         text=True,
+                        encoding='utf-8',
+                        errors='replace',
                         timeout=120
                     )
                     if result.returncode == 0:
@@ -328,7 +342,7 @@ if page == "Análise Científica Consolidada":
         with tab1:
             st.markdown("**Tabela 1: Resumo Completo do Dataset**")
             df_tab1 = pd.read_csv('models/tabela1_resumo_dataset.csv')
-            st.dataframe(df_tab1, use_container_width=True, hide_index=True)
+            st.dataframe(df_tab1, width='stretch', hide_index=True)
             st.download_button(
                 "📥 Download CSV",
                 df_tab1.to_csv(index=False).encode('utf-8'),
@@ -339,7 +353,7 @@ if page == "Análise Científica Consolidada":
         with tab2:
             st.markdown("**Tabela 2: Estatísticas Descritivas das Features**")
             df_tab2 = pd.read_csv('models/tabela2_estatisticas_features.csv')
-            st.dataframe(df_tab2, use_container_width=True, hide_index=True)
+            st.dataframe(df_tab2, width='stretch', hide_index=True)
             st.download_button(
                 "📥 Download CSV",
                 df_tab2.to_csv(index=False).encode('utf-8'),
@@ -350,7 +364,7 @@ if page == "Análise Científica Consolidada":
         with tab3:
             st.markdown("**Tabela 3: Comparação Completa de Modelos**")
             df_tab3 = pd.read_csv('models/tabela3_comparacao_modelos.csv')
-            st.dataframe(df_tab3, use_container_width=True, hide_index=True)
+            st.dataframe(df_tab3, width='stretch', hide_index=True)
             st.info("💡 Note que o **Baseline** (prever sempre a classe majoritária) serve como referência mínima de performance.")
             st.download_button(
                 "📥 Download CSV",
@@ -365,7 +379,7 @@ if page == "Análise Científica Consolidada":
             df_cm = pd.read_csv(f'models/tabela4_cm_{modelo_cm.lower()}.csv')
             
             st.markdown(f"**Matriz de Confusão - {modelo_cm}**")
-            st.dataframe(df_cm, use_container_width=True)
+            st.dataframe(df_cm, width='stretch')
             
             st.markdown("**Como interpretar:**")
             st.markdown("""
@@ -386,7 +400,7 @@ if page == "Análise Científica Consolidada":
         with tab5:
             st.markdown("**Tabela 5: Performance por Temporada de Teste**")
             df_tab5 = pd.read_csv('models/tabela5_performance_temporada.csv')
-            st.dataframe(df_tab5, use_container_width=True, hide_index=True)
+            st.dataframe(df_tab5, width='stretch', hide_index=True)
             st.download_button(
                 "📥 Download CSV",
                 df_tab5.to_csv(index=False).encode('utf-8'),
@@ -398,7 +412,7 @@ if page == "Análise Científica Consolidada":
             st.markdown("**Tabela 6: Relatório de Classificação Detalhado por Modelo**")
             modelo_sel = st.selectbox("Selecione o modelo:", ['SVM', 'RandomForest', 'XGBoost'])
             df_tab6 = pd.read_csv(f'models/tabela6_classificacao_{modelo_sel.lower()}.csv')
-            st.dataframe(df_tab6, use_container_width=True)
+            st.dataframe(df_tab6, width='stretch')
             st.download_button(
                 "📥 Download CSV",
                 df_tab6.to_csv().encode('utf-8'),
@@ -424,32 +438,32 @@ if page == "Análise Científica Consolidada":
         
         with fig_tab1:
             st.markdown("**Figura 1: Comparação Multi-Métrica (Radar Chart)**")
-            st.image('models/figures/fig1_radar_comparison.png', use_container_width=True)
+            st.image('models/figures/fig1_radar_comparison.png', width='stretch')
             st.caption("Comparação visual de todas as métricas de performance dos três modelos. Quanto mais próximo da borda externa, melhor a performance.")
         
         with fig_tab2:
             st.markdown("**Figura 2: Matriz de Correlação entre Features**")
-            st.image('models/figures/fig2_feature_correlation.png', use_container_width=True)
+            st.image('models/figures/fig2_feature_correlation.png', width='stretch')
             st.caption("Heatmap mostrando a correlação linear entre as três features utilizadas. Valores próximos de 1/-1 indicam forte correlação positiva/negativa.")
         
         with fig_tab3:
             st.markdown("**Figura 3: Distribuição das Features por Resultado**")
-            st.image('models/figures/fig3_boxplots_by_result.png', use_container_width=True)
+            st.image('models/figures/fig3_boxplots_by_result.png', width='stretch')
             st.caption("Boxplots mostrando como cada feature se distribui por tipo de resultado (Vitória Casa, Empate, Vitória Visitante).")
         
         with fig_tab4:
             st.markdown("**Figura 4: Comparação de Importância de Features**")
-            st.image('models/figures/fig4_feature_importance_comparison.png', use_container_width=True)
+            st.image('models/figures/fig4_feature_importance_comparison.png', width='stretch')
             st.caption("Comparação lado a lado da importância das features segundo Random Forest e XGBoost.")
         
         with fig_tab5:
             st.markdown("**Figura 5: Curvas de Calibração por Classe**")
-            st.image('models/figures/fig5_calibration_comparison.png', use_container_width=True)
+            st.image('models/figures/fig5_calibration_comparison.png', width='stretch')
             st.caption("Análise de calibração das probabilidades preditas. Curvas próximas da diagonal indicam boa calibração.")
         
         with fig_tab6:
             st.markdown("**Figura 6: Comparação de Métricas (Barras Agrupadas)**")
-            st.image('models/figures/fig6_metrics_comparison_bars.png', use_container_width=True)
+            st.image('models/figures/fig6_metrics_comparison_bars.png', width='stretch')
             st.caption("Visualização comparativa das principais métricas (Accuracy, Precision, Recall, F1-Score) entre os três modelos.")
         
         st.markdown("---")
@@ -480,7 +494,7 @@ if page == "Ajuste de Hiperparâmetros":
     y_train = train['Result']
     results = pd.DataFrame()
 
-    tune_model = st.selectbox("Escolha o modelo para ajustar", ["SVM","RandomForest","XGBoost"])
+    tune_model = st.selectbox("Escolha o modelo para ajustar", ["SVM","RandomForest","XGBoost","NaiveBayes"])
     if st.button("Executar ajuste"):
         with st.spinner("Executando busca em grade (pode levar um momento)..."):
             st.info("Ajuste iniciado — pode demorar. Verifique o terminal para logs do GridSearch.")
@@ -490,9 +504,12 @@ if page == "Ajuste de Hiperparâmetros":
             elif tune_model == 'RandomForest':
                 param_grid = {'n_estimators':[50,100], 'max_depth':[5,10,None]}
                 gs = GridSearchCV(RandomForestClassifier(), param_grid, cv=3, scoring='accuracy', n_jobs=-1, verbose=2)
-            else:
+            elif tune_model == 'XGBoost':
                 param_grid = {'learning_rate':[0.01,0.05], 'max_depth':[3,6]}
-                gs = GridSearchCV(XGBClassifier(eval_metric='mlogloss', use_label_encoder=False), param_grid, cv=3, scoring='accuracy', n_jobs=-1, verbose=2)
+                gs = GridSearchCV(XGBClassifier(eval_metric='mlogloss'), param_grid, cv=3, scoring='accuracy', n_jobs=-1, verbose=2)
+            else:  # NaiveBayes
+                param_grid = {'var_smoothing': [1e-9, 1e-8, 1e-7, 1e-6]}
+                gs = GridSearchCV(GaussianNB(), param_grid, cv=3, scoring='accuracy', n_jobs=-1, verbose=2)
             try:
                 gs.fit(X_train, y_train)
             except Exception as e:
@@ -501,9 +518,28 @@ if page == "Ajuste de Hiperparâmetros":
             else:
                 st.write("Melhores parâmetros:", gs.best_params_)
                 results = pd.DataFrame(gs.cv_results_)
-                st.dataframe(results[['params','mean_test_score','std_test_score']])
-            # small heatmap if 2 params
-            if len(param_grid) == 2:
+                # Converter a coluna 'params' para string para evitar erro Arrow
+                results_display = results[['params','mean_test_score','std_test_score']].copy()
+                results_display['params'] = results_display['params'].astype(str)
+                st.dataframe(results_display, width='stretch')
+            
+            # Visualização dos resultados
+            if len(param_grid) == 1:
+                # Gráfico de barras para 1 parâmetro
+                param_name = list(param_grid.keys())[0]
+                fig, ax = plt.subplots(figsize=(8, 4))
+                param_values = results['param_' + param_name].astype(str)
+                ax.bar(param_values, results['mean_test_score'])
+                ax.set_xlabel(param_name, fontsize=12)
+                ax.set_ylabel('Acurácia Média (CV)', fontsize=12)
+                ax.set_title(f'Performance por {param_name}', fontsize=14)
+                ax.grid(axis='y', alpha=0.3)
+                # Adicionar valores nas barras
+                for i, (x, y) in enumerate(zip(param_values, results['mean_test_score'])):
+                    ax.text(i, y + 0.005, f'{y:.3f}', ha='center', va='bottom', fontsize=10)
+                st.pyplot(fig)
+            elif len(param_grid) == 2:
+                # Heatmap para 2 parâmetros
                 p1, p2 = list(param_grid.keys())
                 # build pivot table
                 results['p1'] = results['param_' + p1].astype(str)
