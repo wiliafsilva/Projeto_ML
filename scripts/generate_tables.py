@@ -152,8 +152,16 @@ comparison_data.append({
 # Adicionar modelos treinados
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
-    probs = model.predict_proba(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
+    probs = model.predict_proba(X_test_model)
     
     # Métricas básicas
     acc = accuracy_score(y_test, preds)
@@ -199,7 +207,15 @@ classes = ['Vitória Casa', 'Empate', 'Vitória Visitante']
 
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
     cm = confusion_matrix(y_test, preds)
     
     print(f"\n{name}:")
@@ -254,7 +270,15 @@ for season in sorted(features_test['Season'].unique()):
     # Acurácia de cada modelo nessa temporada
     for name, info in models.items():
         model = info['model']
-        preds_season = model.predict(X_season)
+        
+        # Filtrar features para corresponder ao modelo
+        feature_columns = info.get('feature_columns', None)
+        if feature_columns is not None:
+            X_season_model = X_season[feature_columns]
+        else:
+            X_season_model = X_season
+        
+        preds_season = model.predict(X_season_model)
         acc_season = accuracy_score(y_season, preds_season)
         row[name] = f'{acc_season*100:.2f}%'
     
@@ -273,7 +297,15 @@ from sklearn.metrics import classification_report
 
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
     
     print(f"\n{name}:")
     print("-" * 60)

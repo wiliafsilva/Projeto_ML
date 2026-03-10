@@ -1,598 +1,748 @@
 
-# Scientific Replica – Premier League Match Prediction
+# 🏆 Predição de Resultados da Premier League - Machine Learning
 
-This project replicates a scientific study predicting match outcomes in the English Premier League using Machine Learning.
+Projeto completo de Machine Learning para predição de resultados de partidas da Premier League (2005-2016), com **43 features**, **4 modelos calibrados**, e **análises científicas** prontas para publicação.
 
-## ⚡ Quick Start (Primeiros Passos)
+## 📋 Índice
 
-```bash
-# 1. Criar e ativar ambiente virtual
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-# 2. Instalar dependências
-pip install -r requirements.txt
-
-# 3. Treinar modelos com hiperparâmetros otimizados
-python main.py
-
-# 4. Abrir interface interativa
-streamlit run app.py
-```
-
-Pronto! Acesse http://localhost:8501 no navegador.
+- [Visão Geral](#visão-geral)
+- [Pré-requisitos](#pré-requisitos)
+- [Instalação](#instalação)
+- [Processo de Execução Completo](#processo-de-execução-completo)
+- [Estrutura do Projeto](#estrutura-do-projeto)
+- [Scripts Disponíveis](#scripts-disponíveis)
+- [Resultados](#resultados)
 
 ---
 
-## Methodology
+## 🎯 Visão Geral
 
-- Temporal split (no random split)
-- Incremental feature engineering (no data leakage)
-- Comparison of 4 models:
-  - SVM (RBF)
-  - Random Forest
-  - XGBoost
-  - Naive Bayes (Gaussian)
+Este projeto implementa um pipeline completo de Machine Learning para predição de resultados (Vitória Casa/Empate/Vitória Visitante) de partidas da Premier League.
 
-## Features Implemented
+**Características principais:**
+- ✅ **43 features** engenheiradas (33 do artigo + 10 adicionais)
+- ✅ **4 modelos**: RandomForest, XGBoost, NaiveBayes, SVM (todos calibrados)
+- ✅ **Split temporal**: Treino 2005-2014, Teste 2014-2016 (sem data leakage)
+- ✅ **Hiperparâmetros otimizados** via GridSearch CV
+- ✅ **Análises estatísticas**: Baseline, correlação, confidence intervals, confusion matrices
+- ✅ **14 tabelas científicas** + **3 visualizações** prontas para publicação
+- ✅ **Interface Streamlit** interativa
+- 🧹 **Projeto limpo**: Apenas arquivos essenciais (scripts de limpeza incluídos)
 
-- Cumulative Goal Difference
-- Last 5 matches average goals
-- Streak (last 5 matches)
-- Weighted Streak
-- Home vs Away feature differences
+---
 
-## Train/Test Split (Conforme Artigo Científico)
+## 🔧 Pré-requisitos
 
-**Train:** 2005–2014 (9 temporadas)  
-**Test:** 2014–2016 (2 temporadas)
+- **Python 3.8+**
+- **pip** (gerenciador de pacotes)
+- **Windows PowerShell** (para ativar ambiente virtual)
 
-Esta divisão segue exatamente a metodologia descrita no artigo científico *"Predictive analysis and modelling football results using"*.
+---
 
-## Instalação
+## 📦 Instalação
 
-### 1. Criar ambiente virtual
+### Passo 1: Clonar/baixar o projeto
+
+```bash
+cd c:\Users\seu_usuario\Desktop
+git clone https://github.com/wiliafsilva/Projeto_ML.git
+cd Projeto_ML
+```
+
+### Passo 2: Criar ambiente virtual
 
 ```bash
 python -m venv .venv
 ```
 
-### 2. Ativar ambiente virtual
+### Passo 3: Ativar ambiente virtual
 
+**Windows PowerShell:**
 ```bash
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 3. Instalar dependências
+**Prompt de Comando (cmd):**
+```bash
+.venv\Scripts\activate.bat
+```
+
+**Linux/Mac:**
+```bash
+source .venv/bin/activate
+```
+
+### Passo 4: Instalar dependências
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 🚀 Sequência de Execução Completa
-
-### Para Primeiros Passos (Setup Inicial)
-
-```bash
-# 1. Verificar integridade dos dados
-python scripts\verify_all.py
-
-# 2. Treinar todos os modelos
-python main.py
-
-# 3. Visualizar métricas dos modelos
-python scripts\show_metrics.py
-
-# 4. Abrir interface Streamlit
-streamlit run app.py
-```
-
-### Para Gerar Conteúdo do Artigo Científico
-
-```bash
-# Opção 1: Gerar tudo de uma vez (RECOMENDADO)
-python scripts\generate_all.py
-
-# Opção 2: Gerar individualmente
-# 1. Gerar todas as tabelas consolidadas
-python scripts\generate_tables.py
-
-# 2. Gerar todas as visualizações (300 DPI)
-python scripts\generate_figures.py
-
-# 3. Visualizar no Streamlit → "Análise Científica Consolidada"
-streamlit run app.py
-```
-
-### Ordem Recomendada de Execução
-
-1. **Verificação** → `verify_all.py` - Valida estrutura dos dados
-2. **Treinamento** → `main.py` - Treina e salva modelos
-3. **Métricas** → `show_metrics.py` - Exibe performance
-4. **Tabelas & Figuras** → `generate_all.py` - Gera tudo de uma vez
-5. **Visualização** → `streamlit run app.py` - Interface interativa
-
-**Ou use os botões no Streamlit:**
-
-- Na página "Análise Científica Consolidada", clique em:
-  - 🔄 "Gerar Tabelas" para criar os CSVs
-  - 🎨 "Gerar Figuras" para criar os PNGs
-  - Os arquivos aparecem automaticamente após a geração!
+**Principais pacotes instalados:**
+- `scikit-learn` (modelos ML)
+- `xgboost` (Gradient Boosting)
+- `pandas`, `numpy` (manipulação de dados)
+- `matplotlib`, `seaborn` (visualizações)
+- `streamlit` (interface web)
+- `joblib` (salvamento de modelos)
 
 ---
 
-## Comandos para Executar
+## 🚀 Processo de Execução Completo
 
-### Pipeline Principal
+Siga esta sequência para executar o projeto do zero até os resultados finais.
 
-**Treinar modelos:**
+
+### ⚡ Execução Rápida (Quick Start)
+
+Se você já tem tudo instalado e só quer treinar e visualizar:
+
+```bash
+# 1. Ativar ambiente
+.\.venv\Scripts\Activate.ps1
+
+# 2. Treinar modelos
+python main.py
+
+# 3. Abrir interface
+streamlit run app.py
+```
+
+Acesse http://localhost:8501 no navegador e explore!
+
+---
+
+### 📊 Execução Completa (Passo a Passo Detalhado)
+
+#### **ETAPA 1: Verificação dos Dados**
+
+Antes de tudo, verifique se os dados estão corretos:
+
+```bash
+python scripts/verify_all.py
+```
+
+**O que este script faz:**
+- ✅ Verifica estrutura das pastas `data/data_2005_2014/` e `data/data_2014_2016/`
+- ✅ Conta partidas por temporada (380 por temporada esperado)
+- ✅ Valida presença de todas as colunas necessárias
+- ✅ Mostra estatísticas do dataset (3420 treino + 760 teste)
+- ✅ Exibe distribuição de resultados (Home Win: 43.3%, Draw: 26.3%, Away Win: 30.4%)
+
+**Saída esperada:**
+```
+================================================================================
+VERIFICACAO COMPLETA DO PROJETO
+================================================================================
+
+[OK] Total geral: 4180 partidas (3420 treino + 760 teste)
+[OK] Features implementadas: 43 (33 artigo + 10 bonus)
+[OK] Modelos disponíveis: 4 (RandomForest, XGBoost, NaiveBayes, SVM)
+```
+
+---
+
+#### **ETAPA 2: Treinamento dos Modelos**
+
+Agora treine os 4 modelos Machine Learning:
 
 ```bash
 python main.py
 ```
 
-**Executar interface Streamlit:**
+**O que este script faz:**
+1. **Carrega os dados** das temporadas 2005-2016
+2. **Calcula 43 features** para cada partida:
+   - Form features (5 últimas partidas)
+   - Goal difference acumulada
+   - Ratings FIFA (Overall, Attack, Midfield, Defense)
+   - Head-to-head histórico
+   - League position & points
+   - Betting odds (Bet365)
+   - Interaction features (6 combinações)
+3. **Divide temporalmente**: Treino 2005-2014, Teste 2014-2016
+4. **Treina 4 modelos** com hiperparâmetros otimizados:
+   - RandomForest (50 trees, max_depth=5)
+   - XGBoost (200 estimators, lr=0.01)
+   - NaiveBayes (Gaussian, var_smoothing=1e-05)
+   - SVM (RBF kernel, C=0.1, gamma=0.001)
+5. **Aplica calibração** (isotônica) nas probabilidades
+6. **Salva modelos** em `models/trained_models.pkl`
+
+**Tempo estimado:** 2-5 minutos
+
+**Saída esperada:**
+```
+================================================================================
+RESULTADOS FINAIS - TEST SET (2014-2016: 760 partidas)
+================================================================================
+
+Modelo            Accuracy   Precision     Recall   F1-Score        RPS
+RandomForest        0.5066      0.3336     0.4417     0.3773     0.4132
+XGBoost             0.4934      0.4740     0.4751     0.4733     0.4142
+NaiveBayes          0.4697      0.4665     0.4629     0.4604     0.4194
+SVM                 0.4632      0.4499     0.4513     0.4488     0.4271
+
+[OK] Modelos salvos em: models/trained_models.pkl
+```
+
+---
+
+#### **ETAPA 3: Visualizar Métricas**
+
+Veja um resumo das métricas dos modelos treinados:
+
+```bash
+python scripts/show_metrics.py
+```
+
+**O que este script faz:**
+- Carrega `models/trained_models.pkl`
+- Exibe tabela formatada com todas as métricas
+- Destaca o melhor modelo por métrica
+
+**Saída esperada:**
+```
+Modelo            Accuracy      F1      RPS
+RandomForest       50.66%   0.3773   0.4132  <- MELHOR RPS
+XGBoost            49.34%   0.4733   0.4142
+NaiveBayes         46.97%   0.4604   0.4194
+SVM                46.32%   0.4488   0.4271
+```
+
+---
+
+#### **ETAPA 4: Gerar Análises Científicas**
+
+##### **4a) Baseline Comparison (Validação Científica)**
+
+Compare os modelos ML com preditores triviais:
+
+```bash
+python scripts/baseline_comparison.py
+```
+
+**Resultado:**
+- Cria `models/baseline_comparison.csv`
+- Prova que ML é **17% melhor** que preditores triviais
+- RandomForest 50.7% vs Baseline 43.3% ✅
+
+---
+
+##### **4b) Correlation Heatmap (Multicolinearidade)**
+
+Analise correlação entre features:
+
+```bash
+python scripts/correlation_heatmap.py
+```
+
+**Resultado:**
+- Cria `models/correlation_matrix.csv` (41×41 matriz)
+- Cria `models/figures/correlation_heatmap.png` (visualização)
+- Identifica 44 pares com correlação > 0.8
+- Descobre que `overall_diff ↔ midfield_diff = 0.999` (redundantes!)
+
+---
+
+##### **4c) Confidence Intervals (Bootstrap)**
+
+Calcule intervalos de confiança 95% via bootstrap:
+
+```bash
+python scripts/confidence_intervals_fast.py
+```
+
+**Resultado:**
+- Cria `models/confidence_intervals.csv`
+- Bootstrap com 100 iterações
+- Mostra CI para Accuracy, F1, RPS por modelo
+- Exemplo: RandomForest 0.507 [0.469, 0.545]
+
+---
+
+##### **4d) Radar Chart (Comparação Multi-Métrica)**
+
+Crie gráfico radar comparando modelos:
+
+```bash
+python scripts/radar_chart.py
+```
+
+**Resultado:**
+- Cria `models/figures/radar_chart.png`
+- Polígono 5-axis para cada modelo
+- Visualiza trade-offs entre Accuracy, Precision, Recall, F1, RPS
+
+---
+
+##### **4e) Atualizar Tabelas 3, 5, 6**
+
+Regenere tabelas com performance atual:
+
+```bash
+python scripts/update_tabela3.py
+python scripts/update_tabelas_5_6.py
+```
+
+**Resultado:**
+- Tabela 3: Comparação de modelos atualizada
+- Tabela 5: Performance por temporada (2014-2015, 2015-2016)
+- Tabela 6: Classificação por classe (H/D/A) para cada modelo
+
+---
+
+##### **4f) Confusion Matrices (Tabela 4)**
+
+Regenere matrizes de confusão:
+
+```bash
+python scripts/update_tabela4.py
+```
+
+**Resultado:**
+- 4 arquivos: `models/tabela4_cm_*.csv`
+- Matrizes 3×3 (Home Win, Draw, Away Win)
+- Cada modelo tem sua própria matriz
+
+
+---
+
+#### **ETAPA 5: Interface Streamlit (Visualização Interativa)**
+
+Inicie a aplicação web para explorar os resultados:
 
 ```bash
 streamlit run app.py
 ```
 
-### Scripts de Análise e Verificação
+**Acesse:** http://localhost:8501 no navegador
 
-**Verificar todos os dados do projeto:**
+**6 Páginas disponíveis:**
 
-```bash
-python scripts\verify_all.py
-```
+1. **📊 Dashboard Principal**
+   - Visão geral das métricas
+   - Gráficos de comparação
+   - Distribuição de resultados
 
-Exibe estatísticas completas do dataset, features, modelos, divisão treino/teste e distribuição por temporada.
+2. **🔮 Preditor Interativo**
+   - Insira dados de uma partida manualmente
+   - Veja predições em tempo real dos 4 modelos
+   - Probabilidades para H/D/A
 
-**Mostrar métricas dos modelos:**
+3. **📈 Análise Comparativa**
+   - Comparação detalhada entre modelos
+   - Gráficos de Accuracy, F1, RPS
+   - Matrizes de confusão interativas
 
-```bash
-python scripts\show_metrics.py
-```
+4. **🎯 Features & Importância**
+   - Ranking das 43 features
+   - Gráficos de importância para RF e XGBoost
+   - Análise SHAP (se disponível)
 
-Mostra acurácia, F1 Score e RPS de todos os modelos treinados.
+5. **📊 Análise Científica Consolidada**
+   - Todas as 14 tabelas CSV
+   - 3 visualizações PNG (300 DPI)
+   - Download de arquivos
+   - Botões para gerar tabelas/figuras
 
-**Testar cálculo de features:**
+6. **ℹ️ Sobre o Projeto**
+   - Metodologia
+   - Descrição das features
+   - Split temporal
+   - Tecnologias utilizadas
 
-```bash
-python scripts\test_features.py
-```
+---
 
-Testa o cálculo das features e mostra estatísticas detalhadas sobre valores zeros.
+#### **ETAPA 6: Otimização de Hiperparâmetros (Opcional)**
 
-**Inspecionar dataset EPL:**
+Se quiser testar novos hiperparâmetros:
 
-```bash
-python scripts\inspect_epl.py
-```
-
-Analisa o dataset bruto: total de partidas, temporadas, gols, e distribuição de resultados.
-
-**Debug de features:**
-
-```bash
-python scripts\debug_features.py
-```
-
-Script de debug para investigar problemas no cálculo de features.
-
-**Análise SHAP (explicabilidade):**
-
-```bash
-python scripts\shap_analysis.py
-```
-
-Analisa a importância das features usando SHAP valores. Gera gráficos mostrando quais features têm maior impacto nas previsões.
-
-**GridSearch avançado (otimização):**
+##### **Teste Rápido (5-10 minutos):**
 
 ```bash
-python scripts\gridsearch_advanced.py
+python scripts/gridsearch_quick_test.py
 ```
 
-Otimiza hiperparâmetros dos modelos usando validação temporal. *Atenção: pode demorar bastante!*
+**O que faz:**
+- Testa poucas combinações de hiperparâmetros
+- TimeSeriesSplit com 3 folds
+- Gera arquivo `models/RECOMENDACOES_HIPERPARAMETROS.txt`
+- Salva resultados em `models/quick_test_results.pkl`
 
-**Teste rápido de hiperparâmetros (NOVO):**
+##### **GridSearch Completo (1-2 horas):**
 
 ```bash
-python scripts\quick_hyperparameter_test.py
+python scripts/gridsearch_advanced.py
 ```
 
-Executa teste rápido (5-10 min) para encontrar os melhores hiperparâmetros para todos os modelos:
-- Testa múltiplas combinações de parâmetros
-- Usa TimeSeriesSplit (validação temporal)
-- Gera arquivo de recomendações com melhores configurações
-- Salva resultados em `models/RECOMENDACOES_HIPERPARAMETROS.txt`
+**O que faz:**
+- Teste exhaustivo de hiperparâmetros
+- TimeSeriesSplit com 5 folds
+- Salva resultados em `models/gridsearch_results.csv`
+- ⚠️ **Muito lento!** Use apenas se tiver tempo
 
-**Gerar tabelas consolidadas:**
+---
+
+#### **ETAPA 7: Análises Adicionais (Opcional)**
+
+##### **Feature Importance (Análise):**
 
 ```bash
-python scripts\generate_tables.py
+python scripts/feature_importance_simple.py
 ```
 
-Gera tabelas consolidadas para o artigo científico:
+Mostra ranking das features mais importantes para RF e XGBoost.
 
-- Resumo completo do dataset
-- Estatísticas descritivas das features
-- Comparação completa de modelos (incluindo baseline)
-- Performance por temporada
-- Matrizes de confusão detalhadas
-- Classificação por classe
-
-**Gerar visualizações avançadas (NOVO):**
+##### **SHAP Analysis (Explicabilidade):**
 
 ```bash
-python scripts\generate_figures.py
+python scripts/shap_analysis.py
 ```
 
-Gera figuras de alta qualidade (300 DPI) para o artigo científico:
+Gera gráficos SHAP mostrando impacto de cada feature nas predições.
 
-- Radar chart de comparação multi-métrica
-- Heatmap de correlação entre features
-- Boxplots de features por resultado
-- Comparação de feature importance (RF vs XGBoost)
-- Curvas de calibração comparativas
-- Gráfico de barras de métricas
-
-**Gerar tudo de uma vez (NOVO):**
+##### **Testar Features:**
 
 ```bash
-python scripts\generate_all.py
+python scripts/test_features.py
 ```
 
-Executa `generate_tables.py` e `generate_figures.py` em sequência.
-Gera todos os 10 CSVs + 6 PNGs de uma vez só!
+Testa cálculo das features e mostra estatísticas detalhadas.
 
-## Estrutura do Projeto
+##### **Inspecionar Dataset:**
 
-```md
+```bash
+python scripts/inspect_epl.py
+```
+
+Analisa dataset bruto: partidas, temporadas, gols, distribuição de resultados.
+
+---
+
+### 📂 Arquivos Gerados
+
+Após executar todos os scripts, você terá:
+
+#### **Modelos:**
+- `models/trained_models.pkl` - 4 modelos calibrados + metadados
+
+#### **Tabelas Científicas (14 CSVs):**
+1. `models/baseline_comparison.csv` - Comparação ML vs baselines
+2. `models/tabela3_comparacao_modelos.csv` - Comparação completa
+3. `models/tabela4_cm_randomforest.csv` - Confusion Matrix RF
+4. `models/tabela4_cm_xgboost.csv` - Confusion Matrix XGBoost
+5. `models/tabela4_cm_naivebayes.csv` - Confusion Matrix NB
+6. `models/tabela4_cm_svm.csv` - Confusion Matrix SVM
+7. `models/tabela5_performance_temporada.csv` - Performance por season
+8. `models/tabela6_classificacao_randomforest.csv` - Métricas por classe RF
+9. `models/tabela6_classificacao_xgboost.csv` - Métricas por classe XGBoost
+10. `models/tabela6_classificacao_naivebayes.csv` - Métricas por classe NB
+11. `models/tabela6_classificacao_svm.csv` - Métricas por classe SVM
+12. `models/correlation_matrix.csv` - Matriz 41×41
+13. `models/confidence_intervals.csv` - Bootstrap CIs
+14. `models/gridsearch_results.csv` - Resultados GridSearch (se executado)
+
+#### **Visualizações (3 PNGs):**
+1. `models/figures/correlation_heatmap.png` - Heatmap 41×41 features
+2. `models/figures/radar_chart.png` - Spider plot 5 métricas
+3. `models/figures/fig3_boxplots_by_result.png` - Boxplots features por resultado
+
+---
+
+## 📁 Estrutura do Projeto
+
+
+```
 Projeto_ML/
-├── data/
-│   ├── data_2005_2014/      # Dados de treino (9 temporadas)
+│
+├── 📂 data/                          # Dados das partidas Premier League
+│   ├── data_2005_2014/              # TREINO (9 temporadas, 3420 partidas)
 │   │   ├── Season_2005_2006.csv
-│   │   ├── ... (outras temporadas)
+│   │   ├── Season_2006_2007.csv
+│   │   ├── ...
 │   │   └── Season_2013_2014.csv
-│   └── data_2014_2016/      # Dados de teste (2 temporadas)
+│   │
+│   └── data_2014_2016/              # TESTE (2 temporadas, 760 partidas)
 │       ├── Season_2014_2015.csv
 │       └── Season_2015_2016.csv
-├── models/
-│   ├── trained_models.pkl   # Modelos treinados (SVM, RandomForest, XGBoost, NaiveBayes)
-│   ├── quick_test_results.pkl  # 🆕 Resultados do teste rápido de hiperparâmetros
-│   ├── RECOMENDACOES_HIPERPARAMETROS.txt  # 🆕 Melhores configurações encontradas
-│   ├── tabela*.csv          # Tabelas consolidadas para artigo
-│   └── figures/             # Visualizações científicas (PNG 300 DPI)
-│       ├── fig1_radar_comparison.png
-│       ├── fig2_feature_correlation.png
-│       ├── fig3_boxplots_by_result.png
-│       ├── fig4_feature_importance_comparison.png
-│       ├── fig5_calibration_comparison.png
-│       └── fig6_metrics_comparison_bars.png
-├── scripts/
-│   ├── verify_all.py        # Verificação completa do projeto
-│   ├── show_metrics.py      # Métricas dos modelos
-│   ├── test_features.py     # Teste de features
-│   ├── inspect_epl.py       # Inspeção do dataset
-│   ├── debug_features.py    # Debug de features
-│   ├── shap_analysis.py     # Análise SHAP de explicabilidade
-│   ├── gridsearch_advanced.py  # Otimização de hiperparâmetros (completo)
-│   ├── quick_hyperparameter_test.py  # 🆕 Teste rápido de hiperparâmetros
-│   ├── generate_tables.py   # Geração de tabelas científicas
-│   ├── generate_figures.py  # Geração de visualizações avançadas
-│   └── generate_all.py      # Gera tudo de uma vez (tabelas + figuras)
-├── src/
-│   ├── preprocessing.py     # Carregamento e preparação dos dados
-│   ├── feature_engineering.py  # Cálculo das features
-│   ├── train_models.py      # Treinamento dos modelos
-│   └── analysis.py          # Avaliação e visualizações
-├── app.py                   # Interface Streamlit (6 páginas)
-├── main.py                  # Pipeline de treinamento
-├── requirements.txt         # Dependências
-├── README.md               # Este arquivo
-├── MELHORIAS.md            # Documentação de melhorias
-└── ANALISE_COMPLETUDE.md   # 🆕 Análise de completude vs artigo
+│
+├── 📂 src/                           # Código-fonte principal
+│   ├── preprocessing.py             # Carregamento e preparação dos dados
+│   ├── feature_engineering.py       # Cálculo das 43 features
+│   ├── train_models.py              # Treinamento dos 4 modelos
+│   └── analysis.py                  # Avaliação e visualizações
+│
+├── 📂 scripts/                       # Scripts de análise (19 essenciais)
+│   ├── verify_all.py                # ✅ Verificação completa do projeto
+│   ├── show_metrics.py              # 📊 Exibir métricas dos modelos
+│   ├── baseline_comparison.py       # 🔬 Comparação com baselines
+│   ├── correlation_heatmap.py       # 🌡️ Análise de multicolinearidade
+│   ├── confidence_intervals_fast.py # 📈 Bootstrap CIs (100 iter)
+│   ├── radar_chart.py               # 🎯 Radar chart multi-métrica
+│   ├── update_tabela3.py            # 📋 Atualizar tabela 3
+│   ├── update_tabelas_5_6.py        # 📋 Atualizar tabelas 5 e 6
+│   ├── update_tabela4.py            # 📋 Atualizar matrizes confusão
+│   ├── gridsearch_quick_test.py     # ⚡ Otimização rápida hiperparâmetros
+│   ├── gridsearch_advanced.py       # 🔍 GridSearch completo (lento)
+│   ├── gridsearch_43features.py     # 🔍 GridSearch com 43 features
+│   ├── feature_importance_simple.py # 📊 Ranking de features
+│   ├── shap_analysis.py             # 🔬 Análise SHAP (explicabilidade)
+│   ├── test_features.py             # ✔️ Testar cálculo de features
+│   ├── inspect_epl.py               # 🔍 Inspecionar dataset bruto
+│   └── generate_*.py                # 📊 Scripts de geração (3 arquivos)
+│
+├── 📂 models/                        # Modelos treinados e resultados
+│   ├── trained_models.pkl           # 🧠 4 modelos calibrados + metadados
+│   │
+│   ├── 📊 Tabelas Científicas (14 CSVs):
+│   ├── baseline_comparison.csv
+│   ├── tabela3_comparacao_modelos.csv
+│   ├── tabela4_cm_*.csv (4 arquivos)
+│   ├── tabela5_performance_temporada.csv
+│   ├── tabela6_classificacao_*.csv (4 arquivos)
+│   ├── correlation_matrix.csv
+│   ├── confidence_intervals.csv
+│   ├── gridsearch_results.csv
+│   │
+│   └── 📂 figures/                  # Visualizações (PNG 300 DPI)
+│       ├── correlation_heatmap.png
+│       ├── radar_chart.png
+│       └── fig3_boxplots_by_result.png
+│
+├── 📄 main.py                        # ⚙️ Pipeline principal de treinamento
+├── 📄 app.py                         # 🌐 Interface Streamlit (6 páginas)
+├── 📄 requirements.txt               # 📦 Dependências Python
+├── 📄 README.md                      # 📖 Este arquivo
 ```
 
-## Resultados
+---
 
-### 🏆 Métricas dos Modelos Otimizados (Test Set 2014-2016)
+## 📊 Scripts Disponíveis
 
-Com hiperparâmetros otimizados via GridSearch CV + Calibração:
+### 🔵 **Essenciais (Execute nesta ordem):**
 
-| Modelo | Acurácia | F1-Score | RPS | Status |
-|--------|----------|----------|-----|--------|
-| **RandomForest** 🥇 | **48.42%** | 0.3398 | **0.4261** | ⭐ **MELHOR** |
-| **SVM** 🥈 | 44.34% | 0.4319 | 0.4315 | Excelente |
-| **XGBoost** 🥉 | 44.21% | 0.4053 | 0.4332 | Muito Bom |
-| **NaiveBayes** | 43.55% | 0.4138 | 0.4373 | Bom |
-| **Baseline** | 46.05% | - | - | (sempre "Vitória Casa") |
+| Script | Comando | Descrição | Tempo |
+|--------|---------|-----------|-------|
+| 1. Verificação | `python scripts/verify_all.py` | Valida estrutura dos dados | 5s |
+| 2. Treinamento | `python main.py` | Treina 4 modelos ML | 2-5min |
+| 3. Métricas | `python scripts/show_metrics.py` | Exibe performance | 2s |
+| 4. Interface | `streamlit run app.py` | Abre app web | - |
 
-### 📊 Sobre as Métricas
+### 🟢 **Análises Científicas:**
 
-- **RPS (Ranked Probability Score):** Quanto **menor**, melhor. Mede a qualidade das probabilidades preditas (0 = perfeito, 1 = péssimo).
-- **F1-Score:** Média harmônica entre Precision e Recall (macro average).
-- **Baseline:** Modelo trivial que sempre prevê a classe majoritária. Serve como referência mínima.
+| Script | Comando | Resultado |
+|--------|---------|-----------|
+| Baseline | `python scripts/baseline_comparison.py` | `baseline_comparison.csv` |
+| Correlação | `python scripts/correlation_heatmap.py` | `correlation_matrix.csv` + PNG |
+| Bootstrap CI | `python scripts/confidence_intervals_fast.py` | `confidence_intervals.csv` |
+| Radar Chart | `python scripts/radar_chart.py` | `radar_chart.png` |
+| Tabela 3 | `python scripts/update_tabela3.py` | `tabela3_comparacao_modelos.csv` |
+| Tabelas 5&6 | `python scripts/update_tabelas_5_6.py` | `tabela5_*.csv` + `tabela6_*.csv` |
+| Tabela 4 | `python scripts/update_tabela4.py` | `tabela4_cm_*.csv` (4 arquivos) |
 
-### 🎯 Principais Conquistas
+### 🟡 **Otimização (Opcional):**
 
-✅ **RandomForest** agora é o melhor modelo (RPS 0.4261)  
-✅ **Melhorias de 2-4%** após otimização de hiperparâmetros  
-✅ **Calibração** aplicada automaticamente melhora probabilidades  
-✅ Todos os modelos superam baseline em termos de probabilidades (RPS)
+| Script | Comando | Tempo Estimado |
+|--------|---------|----------------|
+| GridSearch Rápido | `python scripts/gridsearch_quick_test.py` | 5-10 min |
+| GridSearch Completo | `python scripts/gridsearch_advanced.py` | 1-2 horas ⚠️ |
 
-## 🆕 Análise Científica Consolidada
+### 🟠 **Análises Extras:**
 
-### Tabelas para o Artigo
-
-Execute `python scripts\generate_tables.py` para gerar 6 tabelas em CSV:
-
-1. **Resumo do Dataset:** Total de partidas, distribuição de resultados, split treino/teste
-2. **Estatísticas Descritivas:** Mean, Std, Min, Quartis, Max para cada feature
-3. **Comparação de Modelos:** Todas as métricas (Accuracy, Precision, Recall, F1, RPS, Brier, ROC AUC)
-4. **Matrizes de Confusão:** Contagens absolutas e percentuais para cada modelo
-5. **Performance por Temporada:** Acurácia de cada modelo por temporada de teste
-6. **Classificação Detalhada:** Precision, Recall, F1, Support por classe e modelo
-
-### Visualizações para o Artigo
-
-Execute `python scripts\generate_figures.py` para gerar 6 figuras em PNG (300 DPI):
-
-1. **Radar Chart:** Comparação multi-métrica visual dos 3 modelos
-2. **Heatmap:** Correlação linear entre as features
-3. **Boxplots:** Distribuição de cada feature por tipo de resultado
-4. **Feature Importance:** Comparação RF vs XGBoost lado a lado
-5. **Calibração:** Curvas de calibração dos 3 modelos por classe
-6. **Barras:** Comparação visual de Accuracy, Precision, Recall, F1
-
-### Visualizar no Streamlit
-
-Acesse a nova página **"Análise Científica Consolidada"** no Streamlit para:
-
-- Visualizar todas as tabelas interativamente
-- Explorar as figuras com legendas descritivas
-- Fazer download dos CSVs para LaTeX/Word
-- Ver instruções de uso para o artigo
-
-## Melhorias Implementadas
-
-### 1. Otimização de Hiperparâmetros 🆕
-
-Todos os modelos agora usam **hiperparâmetros otimizados** encontrados via GridSearch CV:
-
-**SVM (RPS: 0.4315):**
-- `C=0.1` (regularização suave)
-- `gamma=0.001` (influência ampla para melhor generalização)
-
-**RandomForest (RPS: 0.4261 - MELHOR):**
-- `n_estimators=50` (50 árvores são suficientes)
-- `max_depth=5` (árvores rasas evitam overfitting)
-- `min_samples_split=2`, `min_samples_leaf=1`
-
-**XGBoost (RPS: 0.4332):**
-- `learning_rate=0.01` (aprendizado conservador)
-- `max_depth=3` (árvores rasas)
-- `n_estimators=200` (mais iterações com learning rate baixo)
-- `subsample=0.8`, `colsample_bytree=1.0`
-
-**NaiveBayes (RPS: 0.4373):**
-- `var_smoothing=1e-05` (suavização otimizada)
-
-Execute `python scripts\quick_hyperparameter_test.py` para testar outras configurações!
-
-### 2. Calibração de Probabilidades
-
-Os modelos RandomForest, XGBoost e NaiveBayes agora usam **calibração isotônica** para melhorar as probabilidades preditas. A calibração é aplicada automaticamente durante o treinamento e o modelo calibrado é usado apenas se melhorar o RPS.
-
-### 3. Balanceamento de Classes
-
-- **SVM e RandomForest:** Usam `class_weight='balanced'`
-- **XGBoost e NaiveBayes:** Usam `sample_weight` calculado para balancear as classes
-
-### 4. Análise de Explicabilidade (SHAP)
-
-Execute `python scripts\shap_analysis.py` para:
-
-- Ver ranking de importância das features por modelo
-- Gerar gráficos SHAP mostrando impacto de cada feature
-- Entender quais características mais influenciam as previsões
-
-### 5. Interface Streamlit Aprimorada
-
-O aplicativo Streamlit foi melhorado com:
-
-✅ **Correções de compatibilidade:** Parâmetros atualizados (`width='stretch'` em vez de `use_container_width`)  
-✅ **Encoding UTF-8:** Suporte correto para caracteres especiais  
-✅ **Visualizações aprimoradas:** Gráficos para 1 e 2 parâmetros no ajuste de hiperparâmetros  
-✅ **NaiveBayes integrado:** Adicionado em todas as funcionalidades  
-✅ **Métricas expandidas:** Classification report corretamente formatado  
-
-### 6. Testes Automatizados de Qualidade
-
-Execute `python scripts\verify_all.py` para verificação completa:
-- Validação de estrutura de dados
-- Checagem de features calculadas
-- Verificação de modelos treinados
-- Estatísticas por temporada
+| Script | Descrição |
+|--------|-----------|
+| `feature_importance_simple.py` | Ranking de features (RF + XGBoost) |
+| `shap_analysis.py` | Análise SHAP (explicabilidade) |
+| `test_features.py` | Testa cálculo das 43 features |
+| `inspect_epl.py` | Inspeciona dataset bruto EPL |
 
 ---
 
-## 🖥️ Interface Streamlit
+## 🏆 Resultados
 
-O aplicativo Streamlit possui **6 páginas** para análise completa:
+### **Performance dos Modelos (Test Set 2014-2016)**
 
-### 1. **Visão Geral**
-- Estatísticas gerais do dataset
-- Distribuição de resultados (Vitória Casa/Empate/Vitória Fora)
-- Amostras dos dados e features geradas
-- Análise de features por temporada
+| Modelo | Accuracy | Precision | Recall | F1-Score | RPS ⬇️ |
+|--------|----------|-----------|--------|----------|--------|
+| **RandomForest** 🥇 | **50.66%** | 33.36% | 44.17% | 37.73% | **0.4132** ⭐ |
+| **XGBoost** 🥈 | 49.34% | 47.40% | 47.51% | 47.33% | 0.4142 |
+| **NaiveBayes** 🥉 | 46.97% | 46.65% | 46.29% | 46.04% | 0.4194 |
+| **SVM** | 46.32% | 44.99% | 45.13% | 44.88% | 0.4271 |
+| *Baseline* | 43.29% | - | - | - | - |
 
-### 2. **Comparação de Modelos**
-- Tabela comparativa com Acurácia, F1 e RPS
-- Gráfico de barras de performance
-- Ranking dos modelos
+**Notas:**
+- 🎯 **RPS (Ranked Probability Score)**: Quanto **menor**, melhor (0 = perfeito)
+- ✅ RandomForest é o **melhor modelo** (menor RPS)
+- 🔬 ML supera baseline em **+17%** (validação científica ✅)
 
-### 3. **Avaliação e Métricas**
-- Métricas detalhadas por modelo selecionado
-- Classification report expandido
-- Matriz de confusão interativa
-- Curvas ROC e Precision-Recall
-- Curvas de calibração
-- Feature importance (quando disponível)
+### **Confidence Intervals 95% (Bootstrap)**
 
-### 4. **Análise Científica Consolidada** ⭐
-- **10 tabelas** em CSV prontas para artigo científico
-- **6 visualizações** em PNG (300 DPI) de alta qualidade
-- Botões para gerar tabelas e figuras
-- Download direto dos arquivos
-- Instruções de uso para publicação
+| Modelo | Accuracy CI | F1 CI | RPS CI |
+|--------|-------------|-------|--------|
+| RandomForest | [0.469, 0.545] | [0.356, 0.404] | [0.394, 0.432] |
+| XGBoost | [0.458, 0.533] | [0.440, 0.510] | [0.401, 0.428] |
+| NaiveBayes | [0.437, 0.504] | [0.429, 0.496] | [0.402, 0.433] |
+| SVM | [0.433, 0.503] | [0.424, 0.488] | [0.409, 0.446] |
 
-### 5. **Ajuste de Hiperparâmetros**
-- Interface para executar GridSearch interativamente
-- Suporte para SVM, RandomForest, XGBoost e NaiveBayes
-- Visualização automática dos resultados (barras para 1 parâmetro, heatmap para 2)
-- Display dos melhores parâmetros encontrados
+**Interpretação:**
+- ✅ Intervalos estreitos (largura ~7%) → estimativas confiáveis
+- ✅ Nenhum CI sobrepõe baseline → diferença significativa
 
-### 6. **Distribuições e Importância de Features**
-- KDE plots das features
-- Comparação de importância entre RandomForest e XGBoost
-- Análise univariada
+### **Performance por Temporada**
 
----
+| Temporada | RF | XGBoost | NaiveBayes | SVM |
+|-----------|-----|---------|------------|-----|
+| 2014-2015 | **53.95%** 🔥 | 51.84% | 47.37% | 50.00% |
+| 2015-2016 | 47.37% | 46.84% | 46.58% | 42.63% |
 
-## 🔧 Correções Técnicas e Melhorias Recentes
+**Observação:** Performance varia entre temporadas (mudanças táticas, transferências).
 
-### Bugs Corrigidos
+### **Principais Descobertas Científicas**
 
-✅ **NaiveBayes não previa empates:** Corrigido com adição de `sample_weight` e calibração  
-✅ **Erro Arrow no Streamlit:** Convertido dicionários em colunas para string  
-✅ **Erro de encoding UTF-8:** Adicionado `encoding='utf-8'` nos subprocess calls  
-✅ **Warning de depreciação:** Removido `use_label_encoder` do XGBoost  
-✅ **Parâmetro Streamlit depreciado:** Substituído `use_container_width` por `width='stretch'`  
-
-### Melhorias de Performance
-
-📈 **RandomForest:** +4.7% acurácia e -4.2% RPS após otimização  
-📈 **XGBoost:** +1.6% acurácia e -2.1% RPS após otimização  
-📈 **Todos os modelos:** Melhorias consistentes com hiperparâmetros otimizados  
-
-### Novas Funcionalidades
-
-🆕 Script de teste rápido de hiperparâmetros (`quick_hyperparameter_test.py`)  
-🆕 Visualização de 1 parâmetro no GridSearch (gráfico de barras)  
-🆕 NaiveBayes totalmente integrado em todas as funcionalidades  
-🆕 Arquivo de recomendações automático com melhores configurações  
+1. ✅ **ML vs Baseline**: RandomForest 50.7% vs Baseline 43.3% = **+17% gain**
+2. 🔬 **Multicolinearidade**: `overall_diff ↔ midfield_diff = 0.999` (redundantes!)
+3. 📊 **Trade-off**: RF melhor Accuracy, XGBoost mais balanceado
+4. 📈 **Temporal**: Performance 2014-2015 superior à 2015-2016
+5. ✅ **Robustez**: Confidence Intervals estreitos (estimativas confiáveis)
 
 ---
 
-## Sobre os Modelos
+## 🔬 Metodologia
 
-### SVM (Support Vector Machine)
+### **Split Temporal (Sem Data Leakage)**
 
-- **Kernel RBF** para capturar relações não-lineares
-- **Vantagens:** Boa calibração de probabilidades, eficaz em espaços de alta dimensão
-- **Desvantagens:** Lento em grandes datasets, sensível à escala
-- **Uso:** Melhor quando probabilidades calibradas são importantes
-
-### RandomForest
-
-- **Ensemble de árvores** (bagging)
-- **Vantagens:** Robusto, fornece importâncias de features, pouco pré-processamento
-- **Desvantagens:** Probabilidades podem não ser bem calibradas
-- **Uso:** Bom para análise exploratória e interpretabilidade
-
-### XGBoost
-
-- **Gradient boosting otimizado**
-- **Vantagens:** Alta acurácia, captura padrões complexos, rápido
-- **Desvantagens:** Requer ajuste de hiperparâmetros, pode sobreajustar
-- **Uso:** Melhor quando acurácia máxima é prioridade
-
-### Naive Bayes (Gaussian)
-
-- **Modelo probabilístico simples** que assume independência condicional entre features, usando distribuição normal para variáveis contínuas.
-- **Vantagens:** Extremamente rápido para treinar e prever, pouco sujeito a overfitting, bom baseline probabilístico.
-- **Desvantagens:** A hipótese de independência raramente é verdadeira, o que pode limitar a acurácia máxima.
-- **Uso:** Útil como modelo de referência leve e como comparação adicional às abordagens de ensemble mais complexas.
-
----
-
-## 💡 Perguntas Frequentes (FAQ)
-
-### Como melhorar ainda mais os modelos?
-
-1. **Teste outros hiperparâmetros:**
-   ```bash
-   python scripts\quick_hyperparameter_test.py
-   ```
-
-2. **Analise feature importance:**
-   ```bash
-   python scripts\shap_analysis.py
-   ```
-
-3. **Adicione novas features** em `src/feature_engineering.py`
-
-### Por que RandomForest agora é o melhor?
-
-Após otimização de hiperparâmetros:
-- Árvores **mais rasas** (depth=5) evitam overfitting
-- **Menos estimadores** (50) são mais eficientes
-- **Calibração** melhora as probabilidades preditas
-
-### Como usar os hiperparâmetros encontrados?
-
-Os hiperparâmetros já estão aplicados em `src/train_models.py`. Execute `python main.py` para treinar com eles!
-
-### O que fazer se acurácia parecer baixa?
-
-É **normal** para predição de futebol! Resultados de futebol têm muito fator aleatório. Acurácias de 40-50% são boas para este problema. O importante é que:
-- **RPS seja baixo** (boa calibração de probabilidades)
-- Supere o **baseline** (prever sempre a mesma classe)
-
-### Como exportar para artigo científico?
-
-```bash
-# Gerar tudo de uma vez
-python scripts\generate_all.py
-
-# Ou individual
-python scripts\generate_tables.py
-python scripts\generate_figures.py
+```
+Treino:  2005-2014 (9 temporadas) → 3420 partidas
+Teste:   2014-2016 (2 temporadas) → 760 partidas
 ```
 
-Arquivos gerados em `models/` (CSVs) e `models/figures/` (PNGs 300 DPI).
+✅ **Sem random split** - Evita data leakage temporal  
+✅ **Features incrementais** - Calculadas sequencialmente  
+✅ **Validação cruzada temporal** - TimeSeriesSplit no GridSearch
 
-### Onde visualizar os resultados?
+### **43 Features Implementadas**
 
-```bash
-streamlit run app.py
+#### **Classe A: Features Individuais (14)**
+- `home_form`, `away_form` (últimas 5 partidas)
+- `home_position`, `away_position` (posição na liga)
+- `home_points`, `away_points` (pontos acumulados)
+- `h2h_*` (6 features head-to-head)
+
+#### **Classe B: Features Diferenciais (29)**
+- `form_diff`, `gd_diff`, `streak_diff`, `weighted_diff`
+- `overall_diff`, `attack_diff`, `midfield_diff`, `defense_diff` (FIFA ratings)
+- `corners_diff`, `shots_diff`, `shotsontarget_diff`, `goals_avg_diff`
+- `position_diff`, `points_diff`
+- `prob_home_norm`, `prob_draw_norm`, `prob_away_norm` (odds)
+- 6 interaction features (DIA 9)
+
+### **4 Modelos Calibrados**
+
+| Modelo | Hiperparâmetros Otimizados | Calibração |
+|--------|----------------------------|------------|
+| RandomForest | n_estimators=50, max_depth=5 | Isotônica ✅ |
+| XGBoost | n_estimators=200, lr=0.01, max_depth=3 | Isotônica ✅ |
+| NaiveBayes | var_smoothing=1e-05 | Isotônica ✅ |
+| SVM | C=0.1, gamma=0.001, kernel=RBF | Não aplicável |
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+- **Python 3.8+**
+- **scikit-learn** - Modelos ML, métricas, validação
+- **XGBoost** - Gradient Boosting otimizado
+- **pandas** - Manipulação de dados
+- **numpy** - Operações numéricas
+- **matplotlib + seaborn** - Visualizações
+- **streamlit** - Interface web interativa
+- **joblib** - Serialização de modelos
+- **SHAP** (opcional) - Explicabilidade
+
+---
+
+## 📖 Documentação Adicional
+
+- � **LIMPEZA_INSTRUCOES.md** - Guia de limpeza do projeto (opcional)
+- 🧹 **cleanup_simple.ps1** - Script para remover arquivos não essenciais
+
+> **Nota**: Documentação de desenvolvimento, análises de referência e scripts de debug foram movidos para pasta `backup_removidos_*/` para manter o projeto limpo. Veja `LIMPEZA_INSTRUCOES.md` para mais detalhes.
+
+---
+
+## 🎯 Próximos Passos Sugeridos
+
+### **Análises Pendentes (Para Publicação):**
+
+1. **Significance Tests** (2h)
+   - McNemar test (comparação de modelos)
+   - Wilcoxon signed-rank test
+   
+2. **VIF Multicolinearity** (1h)
+   - Calcular Variance Inflation Factor
+   - Feature selection baseada em VIF
+   
+3. **Residual Analysis** (1.5h)
+   - Padrões de erro por tipo de jogo
+   - Quando os modelos falham mais
+
+4. **Feature-Target Correlation** (1h)
+   - Correlação de cada feature com Result
+   - Identificar features mais preditivas
+
+---
+
+## 🧹 Limpeza e Manutenção do Projeto
+
+### **Script de Limpeza Automática**
+
+O projeto inclui um script para remover arquivos não essenciais (documentação de desenvolvimento, scripts de debug, PDFs, etc.):
+
+```powershell
+.\cleanup_simple.ps1
 ```
 
-Acesse **"Análise Científica Consolidada"** para ver tudo consolidado!
+**O que o script faz:**
+- ✅ Cria backup automático com timestamp
+- ✅ Move ~38 arquivos não essenciais para pasta `backup_removidos_*/`
+- ✅ Libera ~2.5 MB de espaço
+- ✅ Mantém TODOS os arquivos essenciais intactos
+- ✅ Gera log detalhado da operação
+
+**Arquivos essenciais preservados:**
+- ✅ `main.py`, `app.py`, `requirements.txt`, `README.md`
+- ✅ Pasta `src/` (4 módulos principais)
+- ✅ Pasta `data/` (todos os CSVs)
+- ✅ Pasta `scripts/` (19 scripts essenciais)
+- ✅ Pasta `models/` (resultados gerados)
+
+**Para mais detalhes:**
+Consulte `LIMPEZA_INSTRUCOES.md` para instruções completas sobre limpeza e restauração de arquivos.
 
 ---
 
-## 📚 Referências
+## 👨‍💻 Autor
 
-- Metodologia baseada em artigo científico sobre predição de resultados da EPL
-- Dataset: Football-Data.co.uk (temporadas 2005-2016)
-- Métricas: RPS (Ranked Probability Score), Brier Score, ROC AUC
+**Wilia Silva**  
+GitHub: [@wiliafsilva](https://github.com/wiliafsilva)
 
 ---
 
-## 👨‍💻 Desenvolvimento
+## 📄 Licença
 
-**Projeto:** Replicação Científica - Predição EPL  
-**Status:** ✅ Completo e Otimizado  
-**Última Atualização:** Março 2026  
+Este projeto é open-source e está disponível para fins educacionais e de pesquisa.
 
-**Principais Features:**
-- ✅ 4 modelos otimizados (SVM, RF, XGBoost, NB)
-- ✅ Calibração automática de probabilidades
-- ✅ Hiperparâmetros otimizados via GridSearch
-- ✅ Interface Streamlit completa (6 páginas)
-- ✅ Geração automática de tabelas e figuras científicas
-- ✅ Análise SHAP de explicabilidade
-- ✅ Validação temporal (sem data leakage)
+---
+
+## 🙏 Agradecimentos
+
+- Premier League por disponibilizar os dados históricos
+- Artigo científico original que inspirou este projeto
+- Comunidade Python e bibliotecas open-source
+
+---
+
+**📌 Última atualização**: 10 de março de 2026  
+**🔖 Versão**: 2.1 - Projeto limpo e otimizado
+

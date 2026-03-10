@@ -12,10 +12,14 @@ from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 
 
-def prepare_evaluation_data():
+def prepare_evaluation_data(feature_columns=None):
     """
     Prepara dados de teste seguindo a metodologia do artigo científico.
     Usa dados de teste de 2014-2016 (2 temporadas).
+    
+    Args:
+        feature_columns: Lista opcional de colunas para filtrar (deve corresponder 
+                        às features usadas durante o treinamento do modelo)
     """
     # Carregar dados de teste (2014-2016)
     df_test = load_multiple_seasons("data/data_2014_2016")
@@ -25,6 +29,11 @@ def prepare_evaluation_data():
     
     X_test = features_test.drop(['Result','Season'], axis=1)
     y_test = features_test['Result'].astype(int).values
+    
+    # Filtrar colunas se fornecidas (para correspondência com modelo treinado)
+    if feature_columns is not None:
+        X_test = X_test[feature_columns]
+    
     return X_test, y_test
 
 

@@ -3,6 +3,26 @@ import pandas as pd
 import os
 import glob
 
+def load_ratings():
+    """
+    Carrega ratings FIFA de data/fifa_ratings.csv.
+    
+    Returns:
+        DataFrame com colunas: Team, Season, Overall, Attack, Midfield, Defense
+    """
+    ratings_path = 'data/fifa_ratings.csv'
+    
+    try:
+        df_ratings = pd.read_csv(ratings_path)
+        print(f"\n[OK] Ratings FIFA carregados: {len(df_ratings)} entradas")
+        print(f"   Temporadas: {sorted(df_ratings['Season'].unique())}")
+        print(f"   Times únicos: {df_ratings['Team'].nunique()}")
+        return df_ratings
+    except FileNotFoundError:
+        print(f"\n[AVISO] AVISO: {ratings_path} não encontrado!")
+        print("   Features de Ratings não serão adicionadas.")
+        return pd.DataFrame()
+
 def load_data(path):
     df = pd.read_csv(path)
     # normalize column names from the CSV to what downstream code expects
@@ -89,11 +109,121 @@ def load_multiple_seasons(directory_path):
     df_combined = pd.concat(dataframes, ignore_index=True)
     df_combined = df_combined.sort_values('Date').reset_index(drop=True)
     
+    # ========== ADICIONAR RATINGS FIFA ==========
+    df_ratings = load_ratings()
+    
+    if not df_ratings.empty:
+        print("\n[Pipeline] Integrando Ratings FIFA...")
+        
+        # Merge para time casa
+        df_combined = df_combined.merge(
+            df_ratings.rename(columns={
+                'Team': 'HomeTeam',
+                'Overall': 'HOverall',
+                'Attack': 'HAttack',
+                'Midfield': 'HMidfield',
+                'Defense': 'HDefense'
+            }),
+            on=['HomeTeam', 'Season'],
+            how='left'
+        )
+        
+        # Merge para time visitante
+        df_combined = df_combined.merge(
+            df_ratings.rename(columns={
+                'Team': 'AwayTeam',
+                'Overall': 'AOverall',
+                'Attack': 'AAttack',
+                'Midfield': 'AMidfield',
+                'Defense': 'ADefense'
+            }),
+            on=['AwayTeam', 'Season'],
+            how='left'
+        )
+        
+        # Calcular diferenciais (Class B features)
+        df_combined['overall_diff'] = df_combined['HOverall'] - df_combined['AOverall']
+        df_combined['attack_diff'] = df_combined['HAttack'] - df_combined['AAttack']
+        df_combined['midfield_diff'] = df_combined['HMidfield'] - df_combined['AMidfield']
+        df_combined['defense_diff'] = df_combined['HDefense'] - df_combined['ADefense']
+        
+        # Verificar missings
+        missing_count = df_combined[['HOverall', 'AOverall']].isna().sum().sum()
+        if missing_count > 0:
+            print(f"[AVISO] AVISO: {missing_count} ratings ausentes (times não encontrados no CSV)")
+            # Listar alguns times com ratings ausentes
+            missing_teams = df_combined[df_combined['HOverall'].isna()][['HomeTeam', 'Season']].drop_duplicates().head(5)
+            if not missing_teams.empty:
+                print("   Exemplos de times sem ratings:")
+                for _, row in missing_teams.iterrows():
+                    print(f"     - {row['HomeTeam']} (temporada {row['Season']})")
+            
+            # Preencher valores ausentes com mediana (time mediano)
+            print("\n[Pipeline] Preenchendo ratings ausentes com mediana...")
+            rating_columns = ['HOverall', 'HAttack', 'HMidfield', 'HDefense',
+                            'AOverall', 'AAttack', 'AMidfield', 'ADefense']
+            
+            for col in rating_columns:
+                if col in df_combined.columns:
+                    median_value = df_combined[col].median()
+                    df_combined[col] = df_combined[col].fillna(median_value)
+                    print(f"   {col}: preenchido com {median_value:.1f}")
+            
+            # Recalcular diferenciais
+            df_combined['overall_diff'] = df_combined['HOverall'] - df_combined['AOverall']
+            df_combined['attack_diff'] = df_combined['HAttack'] - df_combined['AAttack']
+            df_combined['midfield_diff'] = df_combined['HMidfield'] - df_combined['AMidfield']
+            df_combined['defense_diff'] = df_combined['HDefense'] - df_combined['ADefense']
+            
+            print("[OK] Ratings ausentes preenchidos com sucesso!")
+        else:
+            print("[OK] Todas as partidas têm ratings!")
+    
+    # ========== ADICIONAR ODDS FEATURES ==========
+    odds_columns = ['B365H', 'B365D', 'B365A']
+    
+    # Verificar se colunas de odds existem
+    if all(col in df_combined.columns for col in odds_columns):
+        print("\n[Pipeline] Integrando Odds Features (Bet365)...")
+        
+        # Verificar valores faltantes
+        missing_odds = df_combined[odds_columns].isna().sum().sum()
+        if missing_odds > 0:
+            print(f"[AVISO] AVISO: {missing_odds} valores de odds ausentes")
+            # Preencher com odds neutras (valores que refletem 33.3% de probabilidade para cada resultado)
+            # Odd neutra ≈ 3.0 para cada resultado
+            for col in odds_columns:
+                median_odd = df_combined[col].median()
+                df_combined[col] = df_combined[col].fillna(median_odd)
+                print(f"   {col}: preenchido com mediana {median_odd:.2f}")
+        
+        # Criar features derivadas das odds (probabilidades implícitas)
+        # P(evento) = 1 / Odd (antes da margem da casa de apostas)
+        df_combined['prob_home'] = 1 / df_combined['B365H']
+        df_combined['prob_draw'] = 1 / df_combined['B365D']
+        df_combined['prob_away'] = 1 / df_combined['B365A']
+        
+        # Normalizar probabilidades (remover margem da casa - overround)
+        prob_sum = df_combined['prob_home'] + df_combined['prob_draw'] + df_combined['prob_away']
+        df_combined['prob_home_norm'] = df_combined['prob_home'] / prob_sum
+        df_combined['prob_draw_norm'] = df_combined['prob_draw'] / prob_sum
+        df_combined['prob_away_norm'] = df_combined['prob_away'] / prob_sum
+        
+        print("[OK] Odds Features criadas:")
+        print("   - B365H, B365D, B365A (odds brutas)")
+        print("   - prob_home/draw/away (probabilidades implícitas)")
+        print("   - prob_home/draw/away_norm (probabilidades normalizadas)")
+        print(f"   Total: 9 features de odds")
+    else:
+        missing_cols = [col for col in odds_columns if col not in df_combined.columns]
+        print(f"\n[AVISO] AVISO: Colunas de odds não encontradas: {missing_cols}")
+        print("   Features de Odds não serão adicionadas.")
+    
     # Remover linhas com valores nulos em colunas essenciais
     essential_cols = ['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'Result', 'Season']
     df_combined = df_combined.dropna(subset=essential_cols)
     
-    print(f"Total de partidas carregadas: {len(df_combined)}")
+    print(f"\nTotal de partidas carregadas: {len(df_combined)}")
     if 'Season' in df_combined.columns:
         seasons = df_combined['Season'].unique()
         print(f"Temporadas: {sorted(seasons)}")

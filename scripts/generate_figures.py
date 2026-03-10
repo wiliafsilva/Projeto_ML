@@ -67,8 +67,16 @@ from math import pi
 metrics_data = {}
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
-    probs = model.predict_proba(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
+    probs = model.predict_proba(X_test_model)
     
     acc = accuracy_score(y_test, preds)
     prec = precision_score(y_test, preds, average='macro', zero_division=0)
@@ -188,22 +196,29 @@ for idx, model_name in enumerate(['RandomForest', 'XGBoost']):
     
     if hasattr(base_model, 'feature_importances_'):
         importances = base_model.feature_importances_
-        feature_names = ['Goal Diff', 'Streak Diff', 'Weighted Diff']
+        
+        # Usar os nomes reais de features do modelo
+        feature_columns = models[model_name].get('feature_columns', [])
+        if not feature_columns:
+            feature_columns = [f'feature_{i}' for i in range(len(importances))]
+        
+        # Top 10 features mais importantes
+        indices = np.argsort(importances)[::-1][:10]
+        top_importances = importances[indices]
+        top_features = [feature_columns[i] for i in indices]
         
         ax = axes[idx]
-        indices = np.argsort(importances)[::-1]
-        
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-        ax.bar(range(len(importances)), importances[indices], color=[colors[i] for i in indices])
-        ax.set_xticks(range(len(importances)))
-        ax.set_xticklabels([feature_names[i] for i in indices], rotation=15, ha='right')
+        colors_palette = plt.cm.viridis(np.linspace(0.3, 0.9, len(top_importances)))
+        ax.bar(range(len(top_importances)), top_importances, color=colors_palette)
+        ax.set_xticks(range(len(top_importances)))
+        ax.set_xticklabels(top_features, rotation=45, ha='right', fontsize=8)
         ax.set_ylabel('Importância')
         ax.set_title(f'{model_name}', fontsize=12, fontweight='bold')
         ax.grid(axis='y', alpha=0.3)
         
         # Adicionar valores no topo das barras
-        for i, v in enumerate(importances[indices]):
-            ax.text(i, v + 0.01, f'{v:.3f}', ha='center', va='bottom', fontsize=9)
+        for i, v in enumerate(top_importances):
+            ax.text(i, v + 0.01, f'{v:.3f}', ha='center', va='bottom', fontsize=8)
 
 fig.suptitle('Comparação de Importância das Features', fontsize=14, y=1.02)
 plt.tight_layout()
@@ -228,7 +243,15 @@ for class_idx, class_name in enumerate(class_names):
     
     for name, info in models.items():
         model = info['model']
-        probs = model.predict_proba(X_test)
+        
+        # Filtrar features para corresponder ao modelo
+        feature_columns = info.get('feature_columns', None)
+        if feature_columns is not None:
+            X_test_model = X_test[feature_columns]
+        else:
+            X_test_model = X_test
+        
+        probs = model.predict_proba(X_test_model)
         prob_pos = probs[:, class_idx]
         
         frac_pos, mean_pred = calibration_curve(y_bin, prob_pos, n_bins=5, strategy='quantile')
@@ -264,7 +287,15 @@ fig, ax = plt.subplots(figsize=(12, 6))
 
 for idx, (name, info) in enumerate(models.items()):
     model = info['model']
-    preds = model.predict(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
     
     acc = accuracy_score(y_test, preds)
     prec = precision_score(y_test, preds, average='macro', zero_division=0)

@@ -3,6 +3,7 @@ import joblib
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -21,8 +22,15 @@ st.set_page_config(layout="wide")
 
 st.title("Scientific Replica – Previsão da EPL (Streamlit)")
 
-@st.cache_data
-def load_models():
+def get_model_file_hash():
+    """Retorna a data de modificação do arquivo de modelos para invalidar cache"""
+    try:
+        return os.path.getmtime("models/trained_models.pkl")
+    except:
+        return 0
+
+@st.cache_data(hash_funcs={float: lambda x: x})
+def load_models(_file_hash):
     try:
         results_metadata = joblib.load("models/trained_models.pkl")
         # Extrair apenas os modelos para compatibilidade
@@ -30,7 +38,7 @@ def load_models():
     except Exception:
         return {}
 
-models = load_models()
+models = load_models(get_model_file_hash())
 
 page = st.sidebar.selectbox("Navegação", [
     "Visão Geral",
@@ -185,20 +193,38 @@ if page == "Comparação de Modelos":
         dfm = pd.DataFrame(data, columns=["Model","Accuracy","F1","RPS"])
         st.dataframe(dfm.set_index('Model'))
         st.subheader("Gráfico de barras: acurácia média de teste")
-        fig, ax = plt.subplots(figsize=(4,2))
+        fig, ax = plt.subplots(figsize=(8,4))
         sns.barplot(x='Model', y='Accuracy', data=dfm, ax=ax)
         ax.set_ylim(0,1)
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
         st.pyplot(fig)
 
 if page == "Avaliação e Métricas":
     st.header("Avaliação do Modelo e Visualizações")
-    X_test, y_test = prepare_evaluation_data()
+    
+    # Botão para limpar cache forçadamente
+    if st.button("🔄 Recarregar Modelos (se houver erros)"):
+        st.cache_data.clear()
+        st.rerun()
+    
     if not models:
         st.warning("Nenhum modelo treinado encontrado. Execute `main.py` para treinar os modelos primeiro.")
     else:
         model_names = list(models.keys())
         sel = st.selectbox("Selecione o modelo", model_names)
         info = models[sel]
+        
+        # Debug: Verificar se modelo tem feature_columns
+        if 'feature_columns' not in info:
+            st.error(f"⚠️ O modelo {sel} não tem 'feature_columns' salvo. Execute `python main.py` para re-treinar os modelos.")
+            st.info("Clique em '🔄 Recarregar Modelos' após executar main.py")
+            st.stop()
+        
+        # Preparar dados de teste com as colunas corretas do modelo
+        feature_columns = info['feature_columns']
+        X_test, y_test = prepare_evaluation_data(feature_columns)
+        
         st.subheader(f"Métricas para {sel}")
         ev = evaluate_model(info['model'], X_test, y_test)
         # show classification report
