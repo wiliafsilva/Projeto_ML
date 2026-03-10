@@ -27,7 +27,6 @@ Este projeto implementa um pipeline completo de Machine Learning para predição
 - ✅ **Análises estatísticas**: Baseline, correlação, confidence intervals, confusion matrices
 - ✅ **14 tabelas científicas** + **3 visualizações** prontas para publicação
 - ✅ **Interface Streamlit** interativa
-- 🧹 **Projeto limpo**: Apenas arquivos essenciais (scripts de limpeza incluídos)
 
 ---
 
@@ -325,7 +324,7 @@ streamlit run app.py
    - Gráficos de comparação
    - Distribuição de resultados
 
-2. **🔮 Preditor Interativo**
+2. **🔮 Preditor Interativo** (Em fase de implantação)
    - Insira dados de uma partida manualmente
    - Veja predições em tempo real dos 4 modelos
    - Probabilidades para H/D/A
@@ -662,13 +661,6 @@ Teste:   2014-2016 (2 temporadas) → 760 partidas
 
 ---
 
-## 📖 Documentação Adicional
-
-- � **LIMPEZA_INSTRUCOES.md** - Guia de limpeza do projeto (opcional)
-- 🧹 **cleanup_simple.ps1** - Script para remover arquivos não essenciais
-
-> **Nota**: Documentação de desenvolvimento, análises de referência e scripts de debug foram movidos para pasta `backup_removidos_*/` para manter o projeto limpo. Veja `LIMPEZA_INSTRUCOES.md` para mais detalhes.
-
 ---
 
 ## 🎯 Próximos Passos Sugeridos
@@ -693,23 +685,6 @@ Teste:   2014-2016 (2 temporadas) → 760 partidas
 
 ---
 
-## 🧹 Limpeza e Manutenção do Projeto
-
-### **Script de Limpeza Automática**
-
-O projeto inclui um script para remover arquivos não essenciais (documentação de desenvolvimento, scripts de debug, PDFs, etc.):
-
-```powershell
-.\cleanup_simple.ps1
-```
-
-**O que o script faz:**
-- ✅ Cria backup automático com timestamp
-- ✅ Move ~38 arquivos não essenciais para pasta `backup_removidos_*/`
-- ✅ Libera ~2.5 MB de espaço
-- ✅ Mantém TODOS os arquivos essenciais intactos
-- ✅ Gera log detalhado da operação
-
 **Arquivos essenciais preservados:**
 - ✅ `main.py`, `app.py`, `requirements.txt`, `README.md`
 - ✅ Pasta `src/` (4 módulos principais)
@@ -717,31 +692,10 @@ O projeto inclui um script para remover arquivos não essenciais (documentação
 - ✅ Pasta `scripts/` (19 scripts essenciais)
 - ✅ Pasta `models/` (resultados gerados)
 
-**Para mais detalhes:**
-Consulte `LIMPEZA_INSTRUCOES.md` para instruções completas sobre limpeza e restauração de arquivos.
-
----
-
 ## 👨‍💻 Autor
 
 **Wilia Silva**  
 GitHub: [@wiliafsilva](https://github.com/wiliafsilva)
-
----
-
-## 📄 Licença
-
-Este projeto é open-source e está disponível para fins educacionais e de pesquisa.
-
----
-
-## 🙏 Agradecimentos
-
-- Premier League por disponibilizar os dados históricos
-- Artigo científico original que inspirou este projeto
-- Comunidade Python e bibliotecas open-source
-
----
 
 **📌 Última atualização**: 10 de março de 2026  
 **🔖 Versão**: 2.1 - Projeto limpo e otimizado
