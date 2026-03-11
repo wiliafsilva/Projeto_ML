@@ -19,7 +19,9 @@ class RPSScorer:
     def __call__(self, estimator, X, y):
         """Calcula o RPS score"""
         y_pred_proba = estimator.predict_proba(X)
-        y_true_onehot = np.eye(3)[y]
+        # garantir que y é um array de inteiros (0,1,2) antes de indexar
+        y_int = np.asarray(y).astype(int)
+        y_true_onehot = np.eye(3)[y_int]
         y_true_cum = np.cumsum(y_true_onehot, axis=1)
         y_prob_cum = np.cumsum(y_pred_proba, axis=1)
         return -np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1))
@@ -28,8 +30,9 @@ print("="*60)
 print("TESTE RÁPIDO DO GRIDSEARCH")
 print("="*60)
 
-# Carregar dados
-df = load_data('data/epl.csv')
+# Carregar dados (usar conjunto combinado de temporadas presente em data/)
+from src.preprocessing import load_all_data
+df = load_all_data()
 features = calculate_team_stats(df)
 
 # Usar apenas dados de treino

@@ -281,7 +281,10 @@ print("\n[6/6] Gerando Gráfico de Barras de Comparação de Métricas...")
 # Preparar dados
 metrics_names = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
 x = np.arange(len(metrics_names))
-width = 0.25
+
+# Ajuste dinâmico da largura das barras com base no número de modelos
+n_models = len(models)
+width = 0.8 / n_models if n_models > 0 else 0.25
 
 fig, ax = plt.subplots(figsize=(12, 6))
 
@@ -303,15 +306,25 @@ for idx, (name, info) in enumerate(models.items()):
     f1 = f1_score(y_test, preds, average='macro', zero_division=0)
     
     values = [acc, prec, rec, f1]
-    
-    offset = width * (idx - 1)
+
+    # Centralizar os grupos: calcular offset para cada modelo
+    offset = (idx - (n_models - 1) / 2) * width
     bars = ax.bar(x + offset, values, width, label=name)
-    
-    # Adicionar valores no topo das barras
-    for bar, val in zip(bars, values):
+
+    # Preparar offsets escalonados para reduzir sobreposição entre modelos
+    max_stagger = 0.04
+    if n_models > 1:
+        stagger_offsets = np.linspace(-max_stagger, max_stagger, n_models)
+    else:
+        stagger_offsets = np.array([0.0])
+
+    base_padding = 0.01
+    alt_step = 0.018  # alternância por coluna (metric) para distribuir labels
+    for bar, v in zip(bars, values):
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{val:.3f}', ha='center', va='bottom', fontsize=9)
+        # Centralizado, logo acima da barra, fonte menor
+        ax.text(bar.get_x() + bar.get_width() / 2., height + 0.01,
+                f"{v:.3f}", ha='center', va='bottom', fontsize=7, clip_on=False)
 
 ax.set_xlabel('Métricas', fontsize=12)
 ax.set_ylabel('Score', fontsize=12)

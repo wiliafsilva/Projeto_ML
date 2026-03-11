@@ -28,7 +28,9 @@ class RPSScorer:
     def __call__(self, estimator, X, y):
         """Calcula o RPS score"""
         y_pred_proba = estimator.predict_proba(X)
-        y_true_onehot = np.eye(3)[y]
+        # garantir que y é um array de inteiros (0,1,2) antes de indexar
+        y_int = np.asarray(y).astype(int)
+        y_true_onehot = np.eye(3)[y_int]
         y_true_cum = np.cumsum(y_true_onehot, axis=1)
         y_prob_cum = np.cumsum(y_pred_proba, axis=1)
         # Retorna negativo porque queremos minimizar RPS, mas GridSearch maximiza
@@ -43,8 +45,9 @@ print("="*60)
 print("GRIDSEARCH AVANÇADO - OTIMIZAÇÃO DE HIPERPARÂMETROS")
 print("="*60)
 
-# Carregar dados
-df = load_data('data/epl.csv')
+# Carregar dados (usar conjunto combinado de temporadas presente em data/)
+from src.preprocessing import load_all_data
+df = load_all_data()
 features = calculate_team_stats(df)
 
 # Usar apenas dados de treino para GridSearch

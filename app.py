@@ -4,6 +4,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+import sys
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -297,7 +298,7 @@ if page == "Análise Científica Consolidada":
             with st.spinner("Gerando tabelas..."):
                 try:
                     result = subprocess.run(
-                        ["python", "scripts/generate_tables.py"],
+                        [sys.executable, "scripts/generate_tables.py"],
                         capture_output=True,
                         text=True,
                         encoding='utf-8',
@@ -319,7 +320,7 @@ if page == "Análise Científica Consolidada":
             with st.spinner("Gerando figuras (pode demorar)..."):
                 try:
                     result = subprocess.run(
-                        ["python", "scripts/generate_figures.py"],
+                        [sys.executable, "scripts/generate_figures.py"],
                         capture_output=True,
                         text=True,
                         encoding='utf-8',
