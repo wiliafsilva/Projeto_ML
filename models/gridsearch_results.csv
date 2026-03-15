@@ -1,5 +1,5 @@
 ,best_params,best_rps_cv
-SVM,"{'C': 2.0, 'gamma': 'scale', 'kernel': 'rbf'}",0.39999297243835014
-RandomForest,"{'max_depth': None, 'min_samples_leaf': 2, 'min_samples_split': 2, 'n_estimators': 200}",0.3948600870935287
-XGBoost,"{'colsample_bytree': 0.8, 'learning_rate': 0.05, 'max_depth': 3, 'n_estimators': 50, 'subsample': 0.8}",0.38823405479372325
-NaiveBayes,{'var_smoothing': 1e-06},0.6023275375462787
+SVM,"{'C': 0.5, 'gamma': 'scale', 'kernel': 'rbf'}",0.19924099388151398
+RandomForest,"{'max_depth': 10, 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}",0.19789402377933563
+XGBoost,"{'colsample_bytree': 0.7, 'learning_rate': 0.05, 'max_depth': 3, 'n_estimators': 50, 'subsample': 0.8}",0.19446415289483476
+NaiveBayes,{'var_smoothing': 1e-06},0.29323450755938063

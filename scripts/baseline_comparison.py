@@ -150,10 +150,10 @@ def calculate_baseline_metrics():
     print()
     
     # ============================================================================
-    # COMPARAÇÃO COM MODELOS ML
+    # COMPARAÇÃO COM MODELOS ML (POR TEMPORADA)
     # ============================================================================
     print("="*80)
-    print("COMPARAÇÃO: BASELINE vs MODELOS ML")
+    print("COMPARAÇÃO: BASELINE vs MODELOS ML (POR TEMPORADA)")
     print("="*80)
     print()
     
@@ -163,64 +163,130 @@ def calculate_baseline_metrics():
         
         models = models_data['models']
         
-        print("TABELA COMPARATIVA")
-        print("-" * 80)
-        print(f"{'Modelo':<25} {'Accuracy':>10} {'F1 (macro)':>12} {'Precision':>11} {'Recall':>10}")
-        print("-" * 80)
+        # Temporadas de teste
+        seasons_test = [
+            ('2014-2015', df_test['Season'] == 2015),
+            ('2015-2016', df_test['Season'] == 2016),
+            ('All', df_test['Season'] > 2014)
+        ]
         
-        # Baselines
-        print(f"{'Baseline (Most Freq)':<25} {acc_baseline1:>10.4f} {f1_baseline1:>12.4f} "
-              f"{prec_baseline1:>11.4f} {rec_baseline1:>10.4f}")
-        print(f"{'Baseline (Stratified)':<25} {acc_baseline2:>10.4f} {f1_baseline2:>12.4f} "
-              f"{prec_baseline2:>11.4f} {rec_baseline2:>10.4f}")
-        print(f"{'Baseline (Always Draw)':<25} {acc_baseline3:>10.4f} {f1_baseline3:>12.4f} "
-              f"{prec_baseline3:>11.4f} {rec_baseline3:>10.4f}")
-        print("-" * 80)
+        all_results = []
         
-        # Modelos ML
-        ml_results = []
-        for name in ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']:
-            if name in models:
-                model = models[name]['model']  # Extrair o objeto sklearn
-                
-                # Preparar features específicas para este modelo (Class A vs Class B)
-                df_test_model = prepare_features_by_model(df_features_test, name)
-                X_test_model = df_test_model.drop(['Result', 'Season'], axis=1)
-                
-                y_pred_ml = model.predict(X_test_model)
-                
-                acc_ml = accuracy_score(y_test, y_pred_ml)
-                f1_ml = f1_score(y_test, y_pred_ml, average='macro')
-                prec_ml = precision_score(y_test, y_pred_ml, average='macro')
-                rec_ml = recall_score(y_test, y_pred_ml, average='macro')
-                
-                print(f"{name:<25} {acc_ml:>10.4f} {f1_ml:>12.4f} {prec_ml:>11.4f} {rec_ml:>10.4f}")
-                
-                ml_results.append({
-                    'model': name,
-                    'accuracy': acc_ml,
-                    'f1': f1_ml,
-                    'precision': prec_ml,
-                    'recall': rec_ml
-                })
+        for season_name, season_mask in seasons_test:
+            print(f"\n{'='*80}")
+            print(f"TEMPORADA: {season_name}")
+            print(f"{'='*80}\n")
+            
+            # Filtrar dados da temporada
+            y_season = df_test[season_mask]['Result']
+            df_features_season = df_features_test[season_mask].reset_index(drop=True)
+            
+            print(f"Total de jogos: {len(y_season)}")
+            print()
+            
+            # Recalcular baselines para esta temporada
+            baseline_most_freq_season = DummyClassifier(strategy='most_frequent', random_state=42)
+            X_season_dummy = df_features_season.drop(['Result', 'Season'], axis=1)
+            baseline_most_freq_season.fit(X_train, y_train)
+            y_pred_b1 = baseline_most_freq_season.predict(X_season_dummy)
+            
+            baseline_stratified_season = DummyClassifier(strategy='stratified', random_state=42)
+            baseline_stratified_season.fit(X_train, y_train)
+            y_pred_b2 = baseline_stratified_season.predict(X_season_dummy)
+            
+            baseline_draw_season = DummyClassifier(strategy='constant', constant=1, random_state=42)
+            baseline_draw_season.fit(X_train, y_train)
+            y_pred_b3 = baseline_draw_season.predict(X_season_dummy)
+            
+            # Métricas baselines
+            acc_b1 = accuracy_score(y_season, y_pred_b1)
+            f1_b1 = f1_score(y_season, y_pred_b1, average='macro', zero_division=0)
+            prec_b1 = precision_score(y_season, y_pred_b1, average='macro', zero_division=0)
+            rec_b1 = recall_score(y_season, y_pred_b1, average='macro', zero_division=0)
+            
+            acc_b2 = accuracy_score(y_season, y_pred_b2)
+            f1_b2 = f1_score(y_season, y_pred_b2, average='macro', zero_division=0)
+            prec_b2 = precision_score(y_season, y_pred_b2, average='macro', zero_division=0)
+            rec_b2 = recall_score(y_season, y_pred_b2, average='macro', zero_division=0)
+            
+            acc_b3 = accuracy_score(y_season, y_pred_b3)
+            f1_b3 = f1_score(y_season, y_pred_b3, average='macro', zero_division=0)
+            prec_b3 = precision_score(y_season, y_pred_b3, average='macro', zero_division=0)
+            rec_b3 = recall_score(y_season, y_pred_b3, average='macro', zero_division=0)
+            
+            print("TABELA COMPARATIVA")
+            print("-" * 80)
+            print(f"{'Modelo':<25} {'Accuracy':>10} {'F1 (macro)':>12} {'Precision':>11} {'Recall':>10}")
+            print("-" * 80)
+            
+            # Baselines
+            print(f"{'Baseline (Most Freq)':<25} {acc_b1:>10.4f} {f1_b1:>12.4f} "
+                  f"{prec_b1:>11.4f} {rec_b1:>10.4f}")
+            print(f"{'Baseline (Stratified)':<25} {acc_b2:>10.4f} {f1_b2:>12.4f} "
+                  f"{prec_b2:>11.4f} {rec_b2:>10.4f}")
+            print(f"{'Baseline (Always Draw)':<25} {acc_b3:>10.4f} {f1_b3:>12.4f} "
+                  f"{prec_b3:>11.4f} {rec_b3:>10.4f}")
+            print("-" * 80)
+            
+            # Modelos ML
+            for name in ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']:
+                if name in models:
+                    model = models[name]['model']
+                    
+                    # Preparar features específicas
+                    df_season_model = prepare_features_by_model(df_features_season, name)
+                    X_season_model = df_season_model.drop(['Result', 'Season'], axis=1)
+                    
+                    y_pred_ml = model.predict(X_season_model)
+                    
+                    acc_ml = accuracy_score(y_season, y_pred_ml)
+                    f1_ml = f1_score(y_season, y_pred_ml, average='macro')
+                    prec_ml = precision_score(y_season, y_pred_ml, average='macro')
+                    rec_ml = recall_score(y_season, y_pred_ml, average='macro')
+                    
+                    print(f"{name:<25} {acc_ml:>10.4f} {f1_ml:>12.4f} {prec_ml:>11.4f} {rec_ml:>10.4f}")
+                    
+                    all_results.append({
+                        'Temporada': season_name,
+                        'Modelo': name,
+                        'Accuracy': acc_ml,
+                        'F1': f1_ml,
+                        'Precision': prec_ml,
+                        'Recall': rec_ml,
+                        'Tipo': 'ML'
+                    })
+            
+            # Adicionar baselines aos resultados
+            all_results.extend([
+                {'Temporada': season_name, 'Modelo': 'Baseline (Most Freq)', 'Accuracy': acc_b1, 'F1': f1_b1, 'Precision': prec_b1, 'Recall': rec_b1, 'Tipo': 'Baseline'},
+                {'Temporada': season_name, 'Modelo': 'Baseline (Stratified)', 'Accuracy': acc_b2, 'F1': f1_b2, 'Precision': prec_b2, 'Recall': rec_b2, 'Tipo': 'Baseline'},
+                {'Temporada': season_name, 'Modelo': 'Baseline (Always Draw)', 'Accuracy': acc_b3, 'F1': f1_b3, 'Precision': prec_b3, 'Recall': rec_b3, 'Tipo': 'Baseline'}
+            ])
+            
+            print("-" * 80)
+            print()
         
-        print("-" * 80)
-        print()
+        # Salvar resultados detalhados
+        ml_results = [r for r in all_results if r['Tipo'] == 'ML' and r['Temporada'] == 'All']
         
         # ========================================================================
-        # GANHOS RELATIVOS (vs Baseline Most Frequent)
+        # GANHOS RELATIVOS (vs Baseline Most Frequent - All)
         # ========================================================================
+        print("\n" + "="*80)
         print("📈 GANHOS RELATIVOS (vs Baseline Most Frequent)")
-        print("-" * 80)
-        print(f"{'Modelo':<25} {'Δ Accuracy':>12} {'Δ F1':>12} {'× Better':>12}")
+        print("="*80)
+        
+        baseline_all = [r for r in all_results if r['Modelo'] == 'Baseline (Most Freq)' and r['Temporada'] == 'All'][0]
+        
+        print(f"\n{'Modelo':<25} {'Δ Accuracy':>12} {'Δ F1':>12} {'× Better':>12}")
         print("-" * 80)
         
         for result in ml_results:
-            delta_acc = (result['accuracy'] - acc_baseline1) / acc_baseline1 * 100
-            delta_f1 = result['f1'] - f1_baseline1  # F1 baseline é 0, então diferença absoluta
-            improvement = result['accuracy'] / acc_baseline1
+            delta_acc = (result['Accuracy'] - baseline_all['Accuracy']) / baseline_all['Accuracy'] * 100
+            delta_f1 = result['F1'] - baseline_all['F1']
+            improvement = result['Accuracy'] / baseline_all['Accuracy']
             
-            print(f"{result['model']:<25} {delta_acc:>+11.2f}% {delta_f1:>+11.4f} "
+            print(f"{result['Modelo']:<25} {delta_acc:>+11.2f}% {delta_f1:>+11.4f} "
                   f"{improvement:>11.2f}×")
         
         print("-" * 80)
@@ -229,18 +295,18 @@ def calculate_baseline_metrics():
         # ========================================================================
         # INTERPRETAÇÃO
         # ========================================================================
-        print("💡 INTERPRETAÇÃO DOS RESULTADOS")
+        print("💡 INTERPRETAÇÃO DOS RESULTADOS (All)")
         print("-" * 80)
         
-        best_ml = max(ml_results, key=lambda x: x['accuracy'])
+        best_ml = max(ml_results, key=lambda x: x['Accuracy'])
         
         print(f"✅ VALIDAÇÃO:")
-        print(f"   - Baseline (Most Freq) Accuracy: {acc_baseline1:.1%}")
-        print(f"   - Melhor ML ({best_ml['model']}) Accuracy: {best_ml['accuracy']:.1%}")
-        print(f"   - Ganho: {(best_ml['accuracy'] - acc_baseline1) / acc_baseline1 * 100:+.1f}%")
+        print(f"   - Baseline (Most Freq) Accuracy: {baseline_all['Accuracy']:.1%}")
+        print(f"   - Melhor ML ({best_ml['Modelo']}) Accuracy: {best_ml['Accuracy']:.1%}")
+        print(f"   - Ganho: {(best_ml['Accuracy'] - baseline_all['Accuracy']) / baseline_all['Accuracy'] * 100:+.1f}%")
         print()
         
-        if best_ml['accuracy'] > acc_baseline1:
+        if best_ml['Accuracy'] > baseline_all['Accuracy']:
             print("   ✅ Modelos ML são SIGNIFICATIVAMENTE melhores que baseline!")
             print("   ✅ Isso prova que as features são informativas.")
         else:
@@ -249,51 +315,16 @@ def calculate_baseline_metrics():
         
         print()
         print(f"📌 F1-Score:")
-        print(f"   - Baseline F1: {f1_baseline1:.4f} (praticamente 0, pois prevê só 1 classe)")
-        print(f"   - ML médio F1: {np.mean([r['f1'] for r in ml_results]):.4f}")
-        print(f"   - ML é {np.mean([r['f1'] for r in ml_results])/max(f1_baseline1, 0.0001):.1f}× melhor em F1!")
+        print(f"   - Baseline F1: {baseline_all['F1']:.4f}")
+        print(f"   - ML médio F1: {np.mean([r['F1'] for r in ml_results]):.4f}")
+        if baseline_all['F1'] > 0:
+            print(f"   - ML é {np.mean([r['F1'] for r in ml_results])/baseline_all['F1']:.1f}× melhor em F1!")
         print()
         
         # ========================================================================
         # SALVAR RESULTADOS
         # ========================================================================
-        results_df = pd.DataFrame([
-            {
-                'Modelo': 'Baseline (Most Frequent)',
-                'Accuracy': acc_baseline1,
-                'F1 (macro)': f1_baseline1,
-                'Precision': prec_baseline1,
-                'Recall': rec_baseline1,
-                'Tipo': 'Baseline'
-            },
-            {
-                'Modelo': 'Baseline (Stratified)',
-                'Accuracy': acc_baseline2,
-                'F1 (macro)': f1_baseline2,
-                'Precision': prec_baseline2,
-                'Recall': rec_baseline2,
-                'Tipo': 'Baseline'
-            },
-            {
-                'Modelo': 'Baseline (Always Draw)',
-                'Accuracy': acc_baseline3,
-                'F1 (macro)': f1_baseline3,
-                'Precision': prec_baseline3,
-                'Recall': rec_baseline3,
-                'Tipo': 'Baseline'
-            }
-        ] + [
-            {
-                'Modelo': r['model'],
-                'Accuracy': r['accuracy'],
-                'F1 (macro)': r['f1'],
-                'Precision': r['precision'],
-                'Recall': r['recall'],
-                'Tipo': 'ML'
-            }
-            for r in ml_results
-        ])
-        
+        results_df = pd.DataFrame(all_results)
         results_df.to_csv('models/baseline_comparison.csv', index=False)
         print("💾 Resultados salvos em: models/baseline_comparison.csv")
         print()
@@ -303,19 +334,9 @@ def calculate_baseline_metrics():
         print("="*80)
         
         return {
-            'baseline_most_freq': {
-                'accuracy': acc_baseline1,
-                'f1': f1_baseline1,
-                'precision': prec_baseline1,
-                'recall': rec_baseline1
-            },
-            'baseline_stratified': {
-                'accuracy': acc_baseline2,
-                'f1': f1_baseline2,
-                'precision': prec_baseline2,
-                'recall': rec_baseline2
-            },
-            'ml_results': ml_results
+            'baseline_results': [r for r in all_results if r['Tipo'] == 'Baseline'],
+            'ml_results': [r for r in all_results if r['Tipo'] == 'ML'],
+            'all_results': all_results
         }
         
     except FileNotFoundError:

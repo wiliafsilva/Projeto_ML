@@ -35,35 +35,64 @@ print()
 print("🔧 Construindo Tabela 3...")
 table3_data = []
 
-# Adicionar Baseline
-baseline_row = baseline_df[baseline_df['Modelo'] == 'Baseline (Most Frequent)'].iloc[0]
-table3_data.append({
-    'Modelo': 'Baseline (Majoritário)',
-    'Accuracy': f"{baseline_row['Accuracy']:.4f}",
-    'Precision': '-',
-    'Recall': '-',
-    'F1': '-',
-    'RPS': '-',
-    'Brier': '-',
-    'ROC AUC': '-'
-})
+# Adicionar Baseline (buscar nome robustamente)
+baseline_candidates = baseline_df[baseline_df['Tipo'].str.lower() == 'baseline']
+baseline_row = None
+if not baseline_candidates.empty:
+    # Preferência por nome que contenha 'Most'
+    mask_most = baseline_candidates['Modelo'].str.contains('Most', case=False, na=False)
+    if mask_most.any():
+        baseline_row = baseline_candidates[mask_most].iloc[0]
+    else:
+        baseline_row = baseline_candidates.iloc[0]
+
+if baseline_row is None:
+    print('⚠️ Baseline não encontrado em baseline_comparison.csv — pulando linha baseline.')
+else:
+    table3_data.append({
+        'Modelo': 'Baseline (Majoritário)',
+        'Accuracy': f"{baseline_row['Accuracy']:.4f}",
+        'Precision': '-',
+        'Recall': '-',
+        'F1': '-',
+        'RPS': '-',
+        'Brier': '-',
+        'ROC AUC': '-'
+    })
 
 # Adicionar modelos ML
 ml_models = ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']
 for model_name in ml_models:
-    # Dados do baseline_comparison.csv
-    model_row = baseline_df[baseline_df['Modelo'] == model_name].iloc[0]
-    
-    # RPS do trained_models.pkl
-    rps_value = models_info[model_name]['rps']
-    
+    # Dados do baseline_comparison.csv — procurar linha do modelo de forma robusta
+    model_rows = baseline_df[baseline_df['Modelo'] == model_name]
+    if model_rows.empty:
+        # tentar busca por substring
+        model_rows = baseline_df[baseline_df['Modelo'].str.contains(model_name, case=False, na=False)]
+
+    if model_rows.empty:
+        print(f"⚠️ Modelo {model_name} não encontrado em baseline_comparison.csv — pulando.")
+        continue
+
+    model_row = model_rows.iloc[0]
+
+    # RPS do trained_models.pkl (proteção caso a chave não exista)
+    rps_value = models_info.get(model_name, {}).get('rps', np.nan)
+
+    # F1 pode estar em coluna 'F1' ou 'F1 (macro)'
+    if 'F1 (macro)' in model_row.index:
+        f1_val = model_row['F1 (macro)']
+    elif 'F1' in model_row.index:
+        f1_val = model_row['F1']
+    else:
+        f1_val = np.nan
+
     table3_data.append({
         'Modelo': model_name,
         'Accuracy': f"{model_row['Accuracy']:.4f}",
-        'Precision': f"{model_row['Precision']:.4f}",
-        'Recall': f"{model_row['Recall']:.4f}",
-        'F1': f"{model_row['F1 (macro)']:.4f}",
-        'RPS': f"{rps_value:.4f}",
+        'Precision': f"{model_row.get('Precision', np.nan):.4f}" if pd.notna(model_row.get('Precision', np.nan)) else '-',
+        'Recall': f"{model_row.get('Recall', np.nan):.4f}" if pd.notna(model_row.get('Recall', np.nan)) else '-',
+        'F1': f"{f1_val:.4f}" if pd.notna(f1_val) else '-',
+        'RPS': f"{rps_value:.4f}" if pd.notna(rps_value) else '-',
         'Brier': '-',  # Não calculado ainda
         'ROC AUC': '-'  # Não calculado ainda
     })

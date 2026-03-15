@@ -104,6 +104,40 @@ for season in seasons:
     table5_data.append(row)
     print(f"   ✓ {row['Temporada']}: {row['Jogos']} jogos")
 
+# Adicionar linha "All" (todas as temporadas de teste combinadas)
+print()
+print("📊 Calculando resultados gerais (All)...")
+y_all = df_test['Result']
+n_games_all = len(y_all)
+
+# Baseline geral
+baseline_preds_all = np.full(n_games_all, baseline_pred)
+baseline_acc_all = accuracy_score(y_all, baseline_preds_all)
+
+row_all = {
+    'Temporada': 'All',
+    'Jogos': n_games_all,
+    'Baseline': f"{baseline_acc_all*100:.2f}%"
+}
+
+# Modelos ML (todas as temporadas)
+for model_name in ['SVM', 'RandomForest', 'XGBoost', 'NaiveBayes']:
+    if model_name in models_info:
+        # Preparar features específicas
+        df_all_model = prepare_features_by_model(df_features_test, model_name)
+        X_all = df_all_model.drop(['Result', 'Season'], axis=1)
+        
+        # Predições
+        model = models_info[model_name]['model']
+        y_pred = model.predict(X_all)
+        
+        # Accuracy
+        acc = accuracy_score(y_all, y_pred)
+        row_all[model_name] = f"{acc*100:.2f}%"
+
+table5_data.append(row_all)
+print(f"   ✓ All: {row_all['Jogos']} jogos")
+
 # Salvar Tabela 5
 table5_df = pd.DataFrame(table5_data)
 output_path5 = 'models/tabela5_performance_temporada.csv'

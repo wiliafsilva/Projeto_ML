@@ -62,6 +62,34 @@ y_test = features_test['Result']
 
 feature_names = X_test.columns.tolist()
 
+# Mapeamento de nomes de features para Português (exibição)
+FEATURE_NAME_PT = {
+    'h2h_games': 'Histórico de Confrontos',
+    'B365D': 'Odds Empate (Bet365)',
+    'B365H': 'Odds Casa (Bet365)',
+    'B365A': 'Odds Visitante (Bet365)',
+    'points_diff': 'Diferença de Pontos',
+    'away_position': 'Posição Visitante',
+    'position_diff': 'Diferença de Posição',
+    'away_points': 'Pontos Visitante',
+    'shots_diff': 'Diferença de Remates',
+    'Season': 'Temporada',
+    'h2h_home_wins': 'Vitórias (H2H Casa)',
+    'home_position': 'Posição Casa',
+    'overall_diff': 'Diferença Overall (FIFA)',
+    'corners_diff': 'Diferença de Escanteios',
+    'gd_diff': 'Diferença de Gols',
+    'h2h_draws': 'Empates (H2H)',
+    'midfield_diff': 'Diferença Meio-campo',
+    'home_form': 'Forma Casa',
+    'away_form': 'Forma Visitante'
+}
+
+def map_feature_name(fname):
+    return FEATURE_NAME_PT.get(fname, fname)
+
+mapped_feature_names = [map_feature_name(f) for f in feature_names]
+
 print(f"\n✓ Dataset carregado:")
 print(f"  Treino: {len(X_train)} amostras, {len(feature_names)} features")
 print(f"  Teste: {len(X_test)} amostras")
@@ -97,7 +125,8 @@ if hasattr(base_rf, 'feature_importances_'):
     cumulative = 0
     for i, idx in enumerate(indices[:15], 1):
         cumulative += importances[idx]
-        print(f"{i:<6} {feature_names[idx]:<30} {importances[idx]:<15.4f} {cumulative*100:<15.1f}%")
+        display_name = map_feature_name(feature_names[idx])
+        print(f"{i:<6} {display_name:<30} {importances[idx]:<15.4f} {cumulative*100:<15.1f}%")
     
     print("\n" + "="*80)
     print(f"✓ Top 15 features explicam {cumulative*100:.1f}% da importância total")
@@ -114,8 +143,10 @@ if hasattr(base_rf, 'feature_importances_'):
     
     # Criar gráfico de barras
     plt.figure(figsize=(12, 8))
-    plt.barh(range(15), importances[indices[:15]][::-1])
-    plt.yticks(range(15), [feature_names[i] for i in indices[:15]][::-1])
+    top15_idx = indices[:15]
+    top15_names_pt = [map_feature_name(feature_names[i]) for i in top15_idx][::-1]
+    plt.barh(range(15), importances[top15_idx][::-1])
+    plt.yticks(range(15), top15_names_pt)
     plt.xlabel('Importância')
     plt.title('RandomForest - Top 15 Features Mais Importantes (RPS 0.4145)')
     plt.tight_layout()
@@ -202,7 +233,8 @@ if SHAP_AVAILABLE:
         print("-"*80)
         
         for i, idx in enumerate(indices[:15], 1):
-            print(f"{i:<6} {feature_names[idx]:<30} {mean_shap_overall[idx]:<15.4f}")
+            display_name = map_feature_name(feature_names[idx])
+            print(f"{i:<6} {display_name:<30} {mean_shap_overall[idx]:<15.4f}")
         
         # Salvar análise SHAP
         shap_df = pd.DataFrame({
@@ -218,8 +250,8 @@ if SHAP_AVAILABLE:
         # 1. Summary plot (bar) - Overall
         plt.figure(figsize=(12, 8))
         shap.summary_plot(shap_values[0] if isinstance(shap_values, list) else shap_values, 
-                         X_sample, 
-                         feature_names=feature_names,
+                 X_sample, 
+                 feature_names=mapped_feature_names,
                          show=False, 
                          plot_type='bar',
                          max_display=15)
@@ -232,8 +264,8 @@ if SHAP_AVAILABLE:
         # 2. Summary plot (beeswarm) - Impacto e direção
         plt.figure(figsize=(12, 8))
         shap.summary_plot(shap_values[0] if isinstance(shap_values, list) else shap_values,
-                         X_sample,
-                         feature_names=feature_names,
+                 X_sample,
+                 feature_names=mapped_feature_names,
                          show=False,
                          max_display=15)
         plt.title('RandomForest - SHAP Impact Distribution (Classe: Home Win)')
@@ -246,11 +278,11 @@ if SHAP_AVAILABLE:
         sample_idx = 0  # Primeira amostra
         plt.figure(figsize=(10, 6))
         shap.waterfall_plot(
-            shap.Explanation(
+                shap.Explanation(
                 values=shap_values[0][sample_idx] if isinstance(shap_values, list) else shap_values[sample_idx],
                 base_values=explainer.expected_value[0] if isinstance(explainer.expected_value, np.ndarray) else explainer.expected_value,
                 data=X_sample.iloc[sample_idx],
-                feature_names=feature_names
+                feature_names=mapped_feature_names
             ),
             show=False
         )

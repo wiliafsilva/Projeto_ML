@@ -284,6 +284,38 @@ for season in sorted(features_test['Season'].unique()):
     
     temporada_data.append(row)
 
+# Adicionar linha "All" (todas as temporadas de teste combinadas)
+print("\nCalculando resultados gerais (All)...")
+y_all = features_test['Result']
+X_all = features_test.drop(['Result', 'Season'], axis=1)
+
+# Baseline geral
+baseline_preds_all = np.full(len(y_all), baseline_pred)
+baseline_acc_all = accuracy_score(y_all, baseline_preds_all)
+
+row_all = {
+    'Temporada': 'All',
+    'Jogos': len(y_all),
+    'Baseline': f'{baseline_acc_all*100:.2f}%'
+}
+
+# Acurácia de cada modelo no geral
+for name, info in models.items():
+    model = info['model']
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_all_model = X_all[feature_columns]
+    else:
+        X_all_model = X_all
+    
+    preds_all = model.predict(X_all_model)
+    acc_all = accuracy_score(y_all, preds_all)
+    row_all[name] = f'{acc_all*100:.2f}%'
+
+temporada_data.append(row_all)
+
 tabela5 = pd.DataFrame(temporada_data)
 print(tabela5.to_string(index=False))
 tabela5.to_csv('models/tabela5_performance_temporada.csv', index=False)

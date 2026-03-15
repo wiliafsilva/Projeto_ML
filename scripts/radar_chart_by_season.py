@@ -1,14 +1,10 @@
 """
-Radar Chart - Multi-Metric Model Comparison
-===========================================
+Radar Chart por Temporada
+Gera um radar chart para cada temporada: 2014-2015, 2015-2016 e All
 
-Agora o script gera radar charts separados por temporada quando executado:
-- 2014-2015
-- 2015-2016
-- All
-
-Ele usa `models/baseline_comparison.csv` para Accuracy, Precision, Recall e F1,
-e `models/trained_models.pkl` para obter o RPS por temporada (em `seasonal_results`).
+Entrada:
+ - models/baseline_comparison.csv (Accuracy, F1, Precision, Recall por temporada)
+ - models/trained_models.pkl (RPS por temporada em ['seasonal_results'])
 
 Saída:
  - models/figures/radar_chart_2014-2015.png
@@ -31,41 +27,55 @@ def ensure_output_dir(path):
 
 
 def generate_radar_for_season(season, df_base, trained_meta, output_path):
-    print('\n' + '='*60)
-    print(f'Gerando radar chart para temporada: {season}')
-    print('='*60)
-
     df_season = df_base[df_base['Temporada'] == season].copy()
     df_ml = df_season[df_season['Tipo'] == 'ML'].copy()
     if df_ml.empty:
         print(f"Nenhum modelo ML encontrado para temporada {season}")
         return
 
+    # Models order
     models = df_ml['Modelo'].tolist()
+
+    # Metrics from CSV: Accuracy, Precision, Recall, F1
     metrics = ['Accuracy', 'Precision', 'Recall', 'F1']
 
+    # Build RPS list from trained_meta['seasonal_results']
     seasonal_results = trained_meta.get('seasonal_results', {})
+    season_key = season
+    if season_key not in seasonal_results:
+        # try alternative keys (e.g., 'All')
+        print(f"Aviso: temporada {season} não encontrada em trained_models.pkl seasonal_results")
 
     rps_vals = []
     for m in models:
-        r = seasonal_results.get(season, {}).get(m, {}).get('rps') if seasonal_results else None
+        r = None
+        try:
+            r = seasonal_results.get(season_key, {}).get(m, {}).get('rps')
+        except Exception:
+            r = None
         if r is None:
+            # fallback to global model rps
             r = trained_meta['models'].get(m, {}).get('rps', 0.0)
         rps_vals.append(float(r))
 
+    # Prepare data matrix: rows = metrics + RPS(inverted), cols = models
     data = []
     for metric in metrics:
         vals = df_ml[metric].astype(float).values.tolist()
         data.append(vals)
 
+    # RPS inverted (1 - rps)
     data.append([1.0 - v for v in rps_vals])
+
     data = np.array(data)
 
+    # Plot
     num_vars = data.shape[0]
     angles = [n / float(num_vars) * 2 * pi for n in range(num_vars)]
     angles += angles[:1]
 
     fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(projection='polar'))
+
     colors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#6C5CE7']
 
     for idx, model in enumerate(models):
@@ -90,38 +100,15 @@ def generate_radar_for_season(season, df_base, trained_meta, output_path):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-    # Print table (inclui Brier e ROC_AUC se presentes no CSV)
+    # Print values table
     print('\nVALORES USADOS PARA:', season)
-    header_cols = ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', '1-RPS']
-    extra_cols = []
-    if 'Brier' in df_ml.columns:
-        extra_cols.append('Brier')
-    if 'ROC_AUC' in df_ml.columns:
-        extra_cols.append('ROC_AUC')
-
-    cols_display = header_cols + extra_cols
-    # build format string
-    fmt = f"{{:<15}} {{:>10}} {{:>11}} {{:>10}} {{:>10}} {{:>10}}"
-    if 'Brier' in extra_cols:
-        fmt += ' {:>10}'
-    if 'ROC_AUC' in extra_cols:
-        fmt += ' {:>10}'
-
-    print(fmt.format(*cols_display))
-    print('-'*100)
+    print(f"{'Modelo':<15} {'Accuracy':>10} {'Precision':>11} {'Recall':>10} {'F1-Score':>10} {'1-RPS':>10}")
+    print('-'*80)
     for i, m in enumerate(models):
-        row_vals = [m, f"{data[0,i]:.4f}", f"{data[1,i]:.4f}", f"{data[2,i]:.4f}", f"{data[3,i]:.4f}", f"{data[4,i]:.4f}"]
-        if 'Brier' in extra_cols:
-            b = df_ml.loc[df_ml['Modelo'] == m, 'Brier'].values
-            row_vals.append(f"{float(b[0]):.4f}" if len(b) and not pd.isna(b[0]) else '-')
-        if 'ROC_AUC' in extra_cols:
-            r = df_ml.loc[df_ml['Modelo'] == m, 'ROC_AUC'].values
-            row_vals.append(f"{float(r[0]):.4f}" if len(r) and not pd.isna(r[0]) else '-')
-        print(fmt.format(*row_vals))
+        print(f"{m:<15} {data[0,i]:>10.4f} {data[1,i]:>11.4f} {data[2,i]:>10.4f} {data[3,i]:>10.4f} {data[4,i]:>10.4f}")
 
 
 def main():
-    print('📂 Carregando dados...')
     df = pd.read_csv('models/baseline_comparison.csv')
     trained = joblib.load('models/trained_models.pkl')
 
@@ -129,9 +116,8 @@ def main():
     for s in seasons:
         out = f'models/figures/radar_chart_{s}.png'
         generate_radar_for_season(s, df, trained, out)
-        print(f"📊 Salvo em: {out}")
+        print(f"Saved: {out}")
 
 
 if __name__ == '__main__':
     main()
- 

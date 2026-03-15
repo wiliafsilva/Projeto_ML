@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier, StackingC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.utils.class_weight import compute_sample_weight
 import joblib
@@ -16,7 +16,10 @@ def rps(y_true, y_prob):
     y_true_onehot = np.eye(3)[y_true]
     y_true_cum = np.cumsum(y_true_onehot, axis=1)
     y_prob_cum = np.cumsum(y_prob, axis=1)
-    return np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1))
+    # Normalizar pelo número de categorias menos 1 (K-1) para ficar compatível
+    # com a definição de RPS usada no artigo (valor entre 0 e 1).
+    k_minus_1 = y_prob.shape[1] - 1 if y_prob.shape[1] > 1 else 1
+    return np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1)) / k_minus_1
 
 
 def prepare_features_by_model(df, model_name):
@@ -406,21 +409,95 @@ def train_models(df_train, df_test):
         "feature_columns": list(X_train_ens.columns)  # Class B features
     }
 
-    print(f"\n{'='*60}")
-    print("RESUMO FINAL (Individuais + Ensembles):")
-    print(f"{'='*60}")
-    for name, info in results.items():
-        print(f"{name:15} - Acurácia: {info['accuracy']:.4f} | F1: {info['f1']:.4f} | RPS: {info['rps']:.4f}")
+    print(f"\n{'='*80}")
+    print("RESUMO FINAL - RESULTADOS POR TEMPORADA")
+    print(f"{'='*80}")
+    
+    # Temporadas de teste (df_test já é o DataFrame de features)
+    seasons_info = [
+        ('2014-2015', 2015),
+        ('2015-2016', 2016),
+        ('All', None)  # None = todas as temporadas
+    ]
+    
+    # Estrutura para armazenar resultados por temporada
+    seasonal_results = {}
+    
+    for season_name, season_value in seasons_info:
+        print(f"\n{'='*60}")
+        print(f"TEMPORADA: {season_name}")
+        print(f"{'='*60}")
+        
+        # Filtrar dados da temporada
+        if season_value is None:
+            # Todas as temporadas de teste
+            df_test_season = df_test
+        else:
+            # Filtrar temporada específica
+            df_test_season = df_test[df_test['Season'] == season_value].reset_index(drop=True)
+        
+        print(f"Total de jogos: {len(df_test_season)}\n")
+        print(f"{'Modelo':<20} {'Acurácia':>10} {'F1':>10} {'RPS':>10}")
+        print("-" * 60)
+        
+        # Inicializar dicionário para esta temporada
+        seasonal_results[season_name] = {}
+        
+        for name, info in results.items():
+            # Preparar features específicas para o modelo
+            if name in ['Voting_Equal', 'Voting_Weighted', 'Stacking']:
+                # Ensembles usam Class B features
+                df_season_model = prepare_features_by_model(df_test_season, 'RandomForest')
+            else:
+                df_season_model = prepare_features_by_model(df_test_season, name)
+            
+            X_season = df_season_model.drop(['Result', 'Season'], axis=1)
+            y_season = df_season_model['Result']
+            
+            # Fazer predições
+            model = info['model']
+            preds_season = model.predict(X_season)
+            probs_season = model.predict_proba(X_season)
+            
+            # Calcular métricas
+            acc_season = accuracy_score(y_season, preds_season)
+            f1_season = f1_score(y_season, preds_season, average='macro', zero_division=0)
+            rps_season = rps(y_season.values, probs_season)
+            
+            # Calcular métricas adicionais
+            prec_season = precision_score(y_season, preds_season, average='macro', zero_division=0)
+            rec_season = recall_score(y_season, preds_season, average='macro', zero_division=0)
+            
+            # Salvar métricas desta temporada
+            seasonal_results[season_name][name] = {
+                'accuracy': acc_season,
+                'precision': prec_season,
+                'recall': rec_season,
+                'f1': f1_season,
+                'rps': rps_season,
+                'n_samples': len(y_season)
+            }
+            
+            print(f"{name:<20} {acc_season:>10.4f} {f1_season:>10.4f} {rps_season:>10.4f}")
+    
+    print(f"\n{'='*80}")
     
     # Salvar resultados com informações sobre a divisão treino/teste
     results_metadata = {
         'models': results,
-        'train_size': len(X_train),
-        'test_size': len(X_test),
+        'seasonal_results': seasonal_results,  # NOVO: Resultados por temporada
+        'train_size': len(df_train),
+        'test_size': len(df_test),
         'train_period': '2005-2014',
         'test_period': '2014-2016',
-        'methodology': 'Replicação do artigo científico'
+        'test_seasons': {
+            '2014-2015': len(df_test[df_test['Season'] == 2015]),
+            '2015-2016': len(df_test[df_test['Season'] == 2016]),
+            'All': len(df_test)
+        },
+        'methodology': 'Replicação do artigo científico - Resultados separados por temporada'
     }
     
     joblib.dump(results_metadata, "models/trained_models.pkl")
     print(f"\n✓ Modelos salvos em models/trained_models.pkl")
+    print(f"✓ Resultados salvos para: 2014-2015, 2015-2016, All")
