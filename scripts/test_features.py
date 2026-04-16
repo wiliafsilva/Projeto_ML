@@ -2,19 +2,23 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.preprocessing import load_data
+from src.preprocessing import load_all_data
 from src.feature_engineering import calculate_team_stats
 import pandas as pd
 
-# Carregar dados
-df = load_data("data/epl.csv")
+# Carregar dados (todas as temporadas)
+df = load_all_data()
 print("=" * 80)
 print("VERIFICAÇÃO DOS DADOS CARREGADOS")
 print("=" * 80)
 print(f"\nTotal de linhas: {len(df)}")
 print(f"\nColunas disponíveis: {list(df.columns)}")
 print("\nPrimeiras 10 linhas após preprocessing:")
-print(df[['Date', 'Season', 'Season_End_Year', 'HomeTeam', 'FTHG', 'FTAG', 'AwayTeam', 'Result']].head(10))
+# Escolher colunas que existem (nem todos os loaders têm 'Season_End_Year')
+cols = ['Date', 'Season', 'HomeTeam', 'FTHG', 'FTAG', 'AwayTeam', 'Result']
+if 'Season_End_Year' in df.columns:
+    cols.insert(2, 'Season_End_Year')
+print(df[cols].head(10))
 
 # Calcular features
 features = calculate_team_stats(df)
@@ -57,4 +61,7 @@ print("=" * 80)
 print("\nContagem de jogos por Season (ano da data):")
 print(df['Season'].value_counts().sort_index().head(10))
 print("\nContagem por Season_End_Year (ano final da temporada):")
-print(df['Season_End_Year'].value_counts().sort_index().head(10))
+if 'Season_End_Year' in df.columns:
+    print(df['Season_End_Year'].value_counts().sort_index().head(10))
+else:
+    print("(coluna 'Season_End_Year' não encontrada no DataFrame)")

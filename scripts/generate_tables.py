@@ -152,8 +152,16 @@ comparison_data.append({
 # Adicionar modelos treinados
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
-    probs = model.predict_proba(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
+    probs = model.predict_proba(X_test_model)
     
     # Métricas básicas
     acc = accuracy_score(y_test, preds)
@@ -199,7 +207,15 @@ classes = ['Vitória Casa', 'Empate', 'Vitória Visitante']
 
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
     cm = confusion_matrix(y_test, preds)
     
     print(f"\n{name}:")
@@ -254,11 +270,51 @@ for season in sorted(features_test['Season'].unique()):
     # Acurácia de cada modelo nessa temporada
     for name, info in models.items():
         model = info['model']
-        preds_season = model.predict(X_season)
+        
+        # Filtrar features para corresponder ao modelo
+        feature_columns = info.get('feature_columns', None)
+        if feature_columns is not None:
+            X_season_model = X_season[feature_columns]
+        else:
+            X_season_model = X_season
+        
+        preds_season = model.predict(X_season_model)
         acc_season = accuracy_score(y_season, preds_season)
         row[name] = f'{acc_season*100:.2f}%'
     
     temporada_data.append(row)
+
+# Adicionar linha "All" (todas as temporadas de teste combinadas)
+print("\nCalculando resultados gerais (All)...")
+y_all = features_test['Result']
+X_all = features_test.drop(['Result', 'Season'], axis=1)
+
+# Baseline geral
+baseline_preds_all = np.full(len(y_all), baseline_pred)
+baseline_acc_all = accuracy_score(y_all, baseline_preds_all)
+
+row_all = {
+    'Temporada': 'All',
+    'Jogos': len(y_all),
+    'Baseline': f'{baseline_acc_all*100:.2f}%'
+}
+
+# Acurácia de cada modelo no geral
+for name, info in models.items():
+    model = info['model']
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_all_model = X_all[feature_columns]
+    else:
+        X_all_model = X_all
+    
+    preds_all = model.predict(X_all_model)
+    acc_all = accuracy_score(y_all, preds_all)
+    row_all[name] = f'{acc_all*100:.2f}%'
+
+temporada_data.append(row_all)
 
 tabela5 = pd.DataFrame(temporada_data)
 print(tabela5.to_string(index=False))
@@ -273,7 +329,15 @@ from sklearn.metrics import classification_report
 
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
     
     print(f"\n{name}:")
     print("-" * 60)

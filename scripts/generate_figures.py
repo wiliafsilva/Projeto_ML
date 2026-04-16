@@ -20,6 +20,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shutil
 from src.preprocessing import load_all_data, load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 from sklearn.metrics import accuracy_score
@@ -67,8 +68,16 @@ from math import pi
 metrics_data = {}
 for name, info in models.items():
     model = info['model']
-    preds = model.predict(X_test)
-    probs = model.predict_proba(X_test)
+    
+    # Filtrar features para corresponder ao modelo
+    feature_columns = info.get('feature_columns', None)
+    if feature_columns is not None:
+        X_test_model = X_test[feature_columns]
+    else:
+        X_test_model = X_test
+    
+    preds = model.predict(X_test_model)
+    probs = model.predict_proba(X_test_model)
     
     acc = accuracy_score(y_test, preds)
     prec = precision_score(y_test, preds, average='macro', zero_division=0)
@@ -188,22 +197,29 @@ for idx, model_name in enumerate(['RandomForest', 'XGBoost']):
     
     if hasattr(base_model, 'feature_importances_'):
         importances = base_model.feature_importances_
-        feature_names = ['Goal Diff', 'Streak Diff', 'Weighted Diff']
+        
+        # Usar os nomes reais de features do modelo
+        feature_columns = models[model_name].get('feature_columns', [])
+        if not feature_columns:
+            feature_columns = [f'feature_{i}' for i in range(len(importances))]
+        
+        # Top 10 features mais importantes
+        indices = np.argsort(importances)[::-1][:10]
+        top_importances = importances[indices]
+        top_features = [feature_columns[i] for i in indices]
         
         ax = axes[idx]
-        indices = np.argsort(importances)[::-1]
-        
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-        ax.bar(range(len(importances)), importances[indices], color=[colors[i] for i in indices])
-        ax.set_xticks(range(len(importances)))
-        ax.set_xticklabels([feature_names[i] for i in indices], rotation=15, ha='right')
+        colors_palette = plt.cm.viridis(np.linspace(0.3, 0.9, len(top_importances)))
+        ax.bar(range(len(top_importances)), top_importances, color=colors_palette)
+        ax.set_xticks(range(len(top_importances)))
+        ax.set_xticklabels(top_features, rotation=45, ha='right', fontsize=8)
         ax.set_ylabel('Importância')
         ax.set_title(f'{model_name}', fontsize=12, fontweight='bold')
         ax.grid(axis='y', alpha=0.3)
         
         # Adicionar valores no topo das barras
-        for i, v in enumerate(importances[indices]):
-            ax.text(i, v + 0.01, f'{v:.3f}', ha='center', va='bottom', fontsize=9)
+        for i, v in enumerate(top_importances):
+            ax.text(i, v + 0.01, f'{v:.3f}', ha='center', va='bottom', fontsize=8)
 
 fig.suptitle('Comparação de Importância das Features', fontsize=14, y=1.02)
 plt.tight_layout()
@@ -228,7 +244,15 @@ for class_idx, class_name in enumerate(class_names):
     
     for name, info in models.items():
         model = info['model']
-        probs = model.predict_proba(X_test)
+        
+        # Filtrar features para corresponder ao modelo
+        feature_columns = info.get('feature_columns', None)
+        if feature_columns is not None:
+            X_test_model = X_test[feature_columns]
+        else:
+            X_test_model = X_test
+        
+        probs = model.predict_proba(X_test_model)
         prob_pos = probs[:, class_idx]
         
         frac_pos, mean_pred = calibration_curve(y_bin, prob_pos, n_bins=5, strategy='quantile')
@@ -251,50 +275,98 @@ print("✓ Salvo: models/figures/fig5_calibration_comparison.png")
 plt.close()
 
 # ============================================================================
-# GRÁFICO 6: Comparação de Métricas (Barras Agrupadas)
+# GRÁFICO 6: Comparação de Métricas (Barras Agrupadas) POR TEMPORADA
 # ============================================================================
-print("\n[6/6] Gerando Gráfico de Barras de Comparação de Métricas...")
+print("\n[6/6] Gerando Gráficos de Barras de Comparação de Métricas por temporada...")
 
-# Preparar dados
+# Preferir usar o CSV consolidado quando disponível (contém métricas por temporada)
+df_base = None
+try:
+    df_base = pd.read_csv('models/baseline_comparison.csv')
+except Exception:
+    df_base = None
+
 metrics_names = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
-x = np.arange(len(metrics_names))
-width = 0.25
+seasons = ['2014-2015', '2015-2016', 'All']
 
-fig, ax = plt.subplots(figsize=(12, 6))
+for season in seasons:
+    x = np.arange(len(metrics_names))
 
-for idx, (name, info) in enumerate(models.items()):
-    model = info['model']
-    preds = model.predict(X_test)
-    
-    acc = accuracy_score(y_test, preds)
-    prec = precision_score(y_test, preds, average='macro', zero_division=0)
-    rec = recall_score(y_test, preds, average='macro', zero_division=0)
-    f1 = f1_score(y_test, preds, average='macro', zero_division=0)
-    
-    values = [acc, prec, rec, f1]
-    
-    offset = width * (idx - 1)
-    bars = ax.bar(x + offset, values, width, label=name)
-    
-    # Adicionar valores no topo das barras
-    for bar, val in zip(bars, values):
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{val:.3f}', ha='center', va='bottom', fontsize=9)
+    if df_base is not None:
+        df_season = df_base[df_base['Temporada'] == season]
+        # Filtrar apenas modelos ML principais (excluir baselines)
+        df_season_ml = df_season[df_season['Tipo'] == 'ML']
+        models_list = df_season_ml['Modelo'].tolist()
+    else:
+        # Fallback: usar os modelos treinados (names) e calcular métricas no conjunto de teste combinado
+        models_list = list(models.keys())
 
-ax.set_xlabel('Métricas', fontsize=12)
-ax.set_ylabel('Score', fontsize=12)
-ax.set_title('Comparação de Métricas entre Modelos', fontsize=14, fontweight='bold')
-ax.set_xticks(x)
-ax.set_xticklabels(metrics_names)
-ax.legend()
-ax.set_ylim([0, 1])
-ax.grid(axis='y', alpha=0.3)
+    n_models = len(models_list)
+    width = 0.8 / n_models if n_models > 0 else 0.25
 
-plt.tight_layout()
-plt.savefig('models/figures/fig6_metrics_comparison_bars.png', dpi=300, bbox_inches='tight')
-print("✓ Salvo: models/figures/fig6_metrics_comparison_bars.png")
-plt.close()
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    for idx, model_name in enumerate(models_list):
+        # Obter valores das métricas
+        if df_base is not None:
+            row = df_season_ml[df_season_ml['Modelo'] == model_name]
+            vals = []
+            for metric in ['Accuracy', 'Precision', 'Recall', 'F1']:
+                if metric in row.columns and not row.empty:
+                    try:
+                        vals.append(float(row[metric].values[0]))
+                    except Exception:
+                        vals.append(0.0)
+                else:
+                    vals.append(0.0)
+        else:
+            # fallback: calcular predições no X_test combinado
+            info = models.get(model_name, {})
+            model = info.get('model')
+            feature_columns = info.get('feature_columns', None)
+            if feature_columns is not None:
+                X_test_model = X_test[feature_columns]
+            else:
+                X_test_model = X_test
+            preds = model.predict(X_test_model)
+            vals = [
+                accuracy_score(y_test, preds),
+                precision_score(y_test, preds, average='macro', zero_division=0),
+                recall_score(y_test, preds, average='macro', zero_division=0),
+                f1_score(y_test, preds, average='macro', zero_division=0)
+            ]
+
+        offset = (idx - (n_models - 1) / 2) * width
+        bars = ax.bar(x + offset, vals, width, label=model_name)
+
+        for bar, v in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width() / 2., v + 0.01,
+                    f"{v:.4f}", ha='center', va='bottom', fontsize=7, clip_on=False)
+
+    ax.set_xlabel('Métricas', fontsize=12)
+    ax.set_ylabel('Score', fontsize=12)
+    ax.set_title(f'Comparação de Métricas entre Modelos - {season}', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics_names)
+    ax.legend()
+    ax.set_ylim([0, 1])
+    ax.grid(axis='y', alpha=0.3)
+
+    plt.tight_layout()
+    out_path = f'models/figures/fig6_metrics_comparison_bars_{season}.png'
+    plt.savefig(out_path, dpi=300, bbox_inches='tight')
+    print(f"✓ Salvo: {out_path}")
+    plt.close()
+
+# Manter um arquivo genérico (compatibilidade com app) apontando para 'All'
+all_src = 'models/figures/fig6_metrics_comparison_bars_All.png'
+default_dst = 'models/figures/fig6_metrics_comparison_bars.png'
+if os.path.exists(all_src):
+    try:
+        shutil.copyfile(all_src, default_dst)
+        print(f"✓ Atualizado: {default_dst} (copiado de {all_src})")
+    except Exception:
+        pass
 
 # ============================================================================
 # RESUMO

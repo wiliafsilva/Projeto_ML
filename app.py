@@ -3,6 +3,8 @@ import joblib
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
+import sys
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -21,16 +23,26 @@ st.set_page_config(layout="wide")
 
 st.title("Scientific Replica – Previsão da EPL (Streamlit)")
 
-@st.cache_data
-def load_models():
+def get_model_file_hash():
+    """Retorna a data de modificação do arquivo de modelos para invalidar cache"""
+    try:
+        return os.path.getmtime("models/trained_models.pkl")
+    except:
+        return 0
+
+@st.cache_data(hash_funcs={float: lambda x: x})
+def load_models(_file_hash):
+    """Carrega modelos e metadados completos"""
     try:
         results_metadata = joblib.load("models/trained_models.pkl")
-        # Extrair apenas os modelos para compatibilidade
-        return results_metadata.get('models', results_metadata)
+        # Retornar todo o metadata (incluindo seasonal_results)
+        return results_metadata
     except Exception:
         return {}
 
-models = load_models()
+results_metadata = load_models(get_model_file_hash())
+models = results_metadata.get('models', results_metadata if isinstance(results_metadata, dict) and 'model' in str(results_metadata) else {})
+seasonal_results = results_metadata.get('seasonal_results', {})
 
 page = st.sidebar.selectbox("Navegação", [
     "Visão Geral",
@@ -179,26 +191,183 @@ if page == "Comparação de Modelos":
     if not models:
         st.warning("Nenhum modelo treinado encontrado. Execute `main.py` para treinar e gerar `models/trained_models.pkl`.")
     else:
+        # Resultados gerais (conjunto completo)
+        st.subheader("📊 Resultados Gerais (Test Set Completo: 2014-2016)")
         data = []
         for name, info in models.items():
             data.append([name, info.get('accuracy'), info.get('f1'), info.get('rps')])
         dfm = pd.DataFrame(data, columns=["Model","Accuracy","F1","RPS"])
         st.dataframe(dfm.set_index('Model'))
+        
         st.subheader("Gráfico de barras: acurácia média de teste")
-        fig, ax = plt.subplots(figsize=(4,2))
+        fig, ax = plt.subplots(figsize=(8,4))
         sns.barplot(x='Model', y='Accuracy', data=dfm, ax=ax)
         ax.set_ylim(0,1)
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
         st.pyplot(fig)
+        
+        # NOVO: Resultados por temporada
+        if seasonal_results:
+            st.markdown("---")
+            st.subheader("📅 Resultados por Temporada (Metodologia do Artigo Científico)")
+            st.info("💡 **Metodologia**: Cada temporada é avaliada separadamente para análise temporal da performance.")
+            
+            # Criar tabs para cada temporada
+            tab1, tab2, tab3 = st.tabs(["2014-2015", "2015-2016", "All (Combinado)"])
+            
+            for tab, season_name in zip([tab1, tab2, tab3], ['2014-2015', '2015-2016', 'All']):
+                with tab:
+                    if season_name in seasonal_results:
+                        season_data = seasonal_results[season_name]
+                        
+                        # Criar DataFrame para exibição
+                        rows = []
+                        for model_name, metrics in season_data.items():
+                            rows.append({
+                                'Modelo': model_name,
+                                'Accuracy': f"{metrics['accuracy']*100:.2f}%",
+                                'Precision': f"{metrics['precision']:.4f}",
+                                'Recall': f"{metrics['recall']:.4f}",
+                                'F1-Score': f"{metrics['f1']:.4f}",
+                                'RPS': f"{metrics['rps']:.4f}",
+                                'Partidas': metrics['n_samples']
+                            })
+                        
+                        df_season = pd.DataFrame(rows)
+                        st.dataframe(df_season, hide_index=True, use_container_width=True)
+                        
+                        # Gráfico de barras para accuracy desta temporada
+                        fig, ax = plt.subplots(figsize=(8, 4))
+                        df_plot = pd.DataFrame([
+                            {'Model': model_name, 'Accuracy': metrics['accuracy']}
+                            for model_name, metrics in season_data.items()
+                        ])
+                        sns.barplot(x='Model', y='Accuracy', data=df_plot, ax=ax)
+                        ax.set_ylim(0, 1)
+                        ax.set_title(f'Accuracy - Temporada {season_name}')
+                        plt.xticks(rotation=45, ha='right')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                    else:
+                        st.warning(f"Dados não disponíveis para {season_name}. Execute `python main.py` para gerar.")
+            
+            # Comparação entre temporadas
+            st.markdown("---")
+            st.subheader("📊 Comparação: Accuracy por Temporada")
+            
+            comparison_data = []
+            model_names = list(seasonal_results.get('All', {}).keys())
+            
+            for model_name in model_names:
+                row = {'Modelo': model_name}
+                for season_name in ['2014-2015', '2015-2016', 'All']:
+                    if season_name in seasonal_results and model_name in seasonal_results[season_name]:
+                        acc = seasonal_results[season_name][model_name]['accuracy']
+                        row[season_name] = f"{acc*100:.2f}%"
+                    else:
+                        row[season_name] = '-'
+                comparison_data.append(row)
+            
+            df_comparison = pd.DataFrame(comparison_data)
+            st.dataframe(df_comparison, hide_index=True, use_container_width=True)
+            
+            st.markdown("---")
+            st.subheader("📉 Comparação: RPS por Temporada")
+            st.caption("⚠️ RPS (Ranked Probability Score): Quanto **menor**, melhor")
+            
+            rps_data = []
+            for model_name in model_names:
+                row = {'Modelo': model_name}
+                for season_name in ['2014-2015', '2015-2016', 'All']:
+                    if season_name in seasonal_results and model_name in seasonal_results[season_name]:
+                        rps = seasonal_results[season_name][model_name]['rps']
+                        row[season_name] = f"{rps:.4f}"
+                    else:
+                        row[season_name] = '-'
+                rps_data.append(row)
+            
+            df_rps = pd.DataFrame(rps_data)
+            st.dataframe(df_rps, hide_index=True, use_container_width=True)
+
+            # Exibir Radar Charts gerados (se existirem) e mostrar Brier/ROC ao lado
+            st.markdown('---')
+            st.subheader('Figura 1: Comparação Multi-Métrica (Radar Chart)')
+            seasons_imgs = [('2014-2015', 'models/figures/radar_chart_2014-2015.png'),
+                            ('2015-2016', 'models/figures/radar_chart_2015-2016.png'),
+                            ('All', 'models/figures/radar_chart_All.png')]
+
+            # Carregar CSV atualizado para mostrar Brier/ROC
+            df_base_cmp = None
+            candidate_paths = [
+                'models/baseline_comparison_with_metrics.csv',
+                'models/baseline_comparison.csv'
+            ]
+            for p in candidate_paths:
+                if os.path.exists(p):
+                    try:
+                        df_base_cmp = pd.read_csv(p)
+                        break
+                    except Exception:
+                        df_base_cmp = None
+
+            for season_name, img_path in seasons_imgs:
+                st.write(f'**TEMPORADA: {season_name}**')
+                if os.path.exists(img_path):
+                    st.image(img_path, caption=f'Radar Multi-Métrica — {season_name}', use_container_width=True)
+                else:
+                    st.warning(f'Imagem não encontrada: {img_path} — rode `python scripts/radar_chart.py`')
+
+                # Mostrar tabela resumida com Brier/ROC_AUC para modelos ML desta temporada
+                if df_base_cmp is not None:
+                    df_season = df_base_cmp[df_base_cmp['Temporada'] == season_name]
+                    if not df_season.empty:
+                        required_cols = ['Modelo', 'Accuracy', 'F1', 'Brier', 'ROC_AUC']
+                        for col in required_cols:
+                            if col not in df_season.columns:
+                                df_season[col] = pd.NA
+
+                        df_show = df_season[df_season['Tipo'] == 'ML'][required_cols]
+                        # Formatar números com segurança
+                        df_show = df_show.copy()
+                        for c in ['Accuracy', 'F1', 'Brier', 'ROC_AUC']:
+                            df_show[c] = pd.to_numeric(df_show[c], errors='coerce')
+
+                        df_show['Accuracy'] = df_show['Accuracy'].map(lambda x: f"{x:.4f}" if pd.notna(x) else '-')
+                        df_show['F1'] = df_show['F1'].map(lambda x: f"{x:.4f}" if pd.notna(x) else '-')
+                        df_show['Brier'] = df_show['Brier'].map(lambda x: f"{x:.4f}" if pd.notna(x) else '-')
+                        df_show['ROC_AUC'] = df_show['ROC_AUC'].map(lambda x: f"{x:.4f}" if pd.notna(x) else '-')
+                        st.table(df_show.set_index('Modelo'))
+                    else:
+                        st.info(f'Dados de comparação não encontrados para temporada {season_name}.')
+        else:
+            st.info("💡 **Resultados por temporada não disponíveis.** Execute `python main.py` para gerar análise completa.")
 
 if page == "Avaliação e Métricas":
     st.header("Avaliação do Modelo e Visualizações")
-    X_test, y_test = prepare_evaluation_data()
+    
+    # Botão para limpar cache forçadamente
+    if st.button("🔄 Recarregar Modelos (se houver erros)"):
+        st.cache_data.clear()
+        st.rerun()
+    
     if not models:
         st.warning("Nenhum modelo treinado encontrado. Execute `main.py` para treinar os modelos primeiro.")
     else:
         model_names = list(models.keys())
         sel = st.selectbox("Selecione o modelo", model_names)
         info = models[sel]
+        
+        # Debug: Verificar se modelo tem feature_columns
+        if 'feature_columns' not in info:
+            st.error(f"⚠️ O modelo {sel} não tem 'feature_columns' salvo. Execute `python main.py` para re-treinar os modelos.")
+            st.info("Clique em '🔄 Recarregar Modelos' após executar main.py")
+            st.stop()
+        
+        # Preparar dados de teste com as colunas corretas do modelo
+        feature_columns = info['feature_columns']
+        X_test, y_test = prepare_evaluation_data(feature_columns)
+        
         st.subheader(f"Métricas para {sel}")
         ev = evaluate_model(info['model'], X_test, y_test)
         # show classification report
@@ -271,7 +440,7 @@ if page == "Análise Científica Consolidada":
             with st.spinner("Gerando tabelas..."):
                 try:
                     result = subprocess.run(
-                        ["python", "scripts/generate_tables.py"],
+                        [sys.executable, "scripts/generate_tables.py"],
                         capture_output=True,
                         text=True,
                         encoding='utf-8',
@@ -293,7 +462,7 @@ if page == "Análise Científica Consolidada":
             with st.spinner("Gerando figuras (pode demorar)..."):
                 try:
                     result = subprocess.run(
-                        ["python", "scripts/generate_figures.py"],
+                        [sys.executable, "scripts/generate_figures.py"],
                         capture_output=True,
                         text=True,
                         encoding='utf-8',
@@ -363,13 +532,62 @@ if page == "Análise Científica Consolidada":
         
         with tab3:
             st.markdown("**Tabela 3: Comparação Completa de Modelos**")
-            df_tab3 = pd.read_csv('models/tabela3_comparacao_modelos.csv')
+            season_selector = st.selectbox("Selecione temporada", ['All', '2014-2015', '2015-2016'], index=0)
+
+            if season_selector == 'All':
+                # arquivo consolidado (All)
+                try:
+                    df_tab3 = pd.read_csv('models/tabela3_comparacao_modelos.csv')
+                except Exception:
+                    df_tab3 = pd.DataFrame()
+            else:
+                # tentar carregar CSV com métricas por temporada e filtrar
+                df_base = None
+                for p in ['models/baseline_comparison_with_metrics.csv', 'models/baseline_comparison.csv']:
+                    if os.path.exists(p):
+                        try:
+                            df_base = pd.read_csv(p)
+                            break
+                        except Exception:
+                            df_base = None
+
+                if df_base is None:
+                    st.warning('Arquivo de comparação por temporada não encontrado. Execute os scripts para gerar os CSVs.')
+                    df_tab3 = pd.DataFrame()
+                else:
+                    df_season = df_base[df_base['Temporada'] == season_selector]
+                    if df_season.empty:
+                        st.info(f'Nenhum dado para temporada {season_selector}.')
+                        df_tab3 = pd.DataFrame()
+                    else:
+                        # Construir formato similar à tabela3 (colunas esperadas)
+                        df_tab3 = pd.DataFrame()
+                        df_tab3['Modelo'] = df_season['Modelo']
+                        df_tab3['Accuracy'] = df_season.get('Accuracy', pd.Series(pd.NA)).apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        df_tab3['Precision'] = df_season.get('Precision', pd.Series(pd.NA)).apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        df_tab3['Recall'] = df_season.get('Recall', pd.Series(pd.NA)).apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        df_tab3['F1'] = df_season.get('F1', pd.Series(pd.NA)).apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        # RPS pode não estar presente no CSV por temporada
+                        if 'RPS' in df_season.columns:
+                            df_tab3['RPS'] = df_season['RPS'].apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        else:
+                            df_tab3['RPS'] = '-'
+                        df_tab3['Brier'] = df_season.get('Brier', pd.Series(pd.NA)).apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+
+                        # ROC column name may vary
+                        if 'ROC_AUC' in df_season.columns:
+                            df_tab3['ROC AUC'] = df_season['ROC_AUC'].apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        elif 'ROC AUC' in df_season.columns:
+                            df_tab3['ROC AUC'] = df_season['ROC AUC'].apply(lambda x: f"{float(x):.4f}" if pd.notna(x) else '-')
+                        else:
+                            df_tab3['ROC AUC'] = '-'
+
             st.dataframe(df_tab3, width='stretch', hide_index=True)
             st.info("💡 Note que o **Baseline** (prever sempre a classe majoritária) serve como referência mínima de performance.")
             st.download_button(
                 "📥 Download CSV",
                 df_tab3.to_csv(index=False).encode('utf-8'),
-                "tabela3_comparacao_modelos.csv",
+                f"tabela3_comparacao_modelos_{season_selector}.csv",
                 "text/csv"
             )
         
@@ -438,33 +656,72 @@ if page == "Análise Científica Consolidada":
         
         with fig_tab1:
             st.markdown("**Figura 1: Comparação Multi-Métrica (Radar Chart)**")
-            st.image('models/figures/fig1_radar_comparison.png', width='stretch')
-            st.caption("Comparação visual de todas as métricas de performance dos três modelos. Quanto mais próximo da borda externa, melhor a performance.")
+            st.caption("Comparação visual de todas as métricas de performance dos modelos por temporada. Cada gráfico mostra Accuracy, Precision, Recall, F1-Score e 1-RPS (maior = melhor).")
+            # Mostrar os três radar charts um abaixo do outro
+            img1 = 'models/figures/radar_chart_2014-2015.png'
+            img2 = 'models/figures/radar_chart_2015-2016.png'
+            img3 = 'models/figures/radar_chart_All.png'
+
+            if os.path.exists(img1):
+                st.image(img1, caption='Temporada 2014-2015', use_container_width=True)
+            else:
+                st.warning(f'Figura não encontrada: {img1}')
+
+            if os.path.exists(img2):
+                st.image(img2, caption='Temporada 2015-2016', use_container_width=True)
+            else:
+                st.warning(f'Figura não encontrada: {img2}')
+
+            if os.path.exists(img3):
+                st.image(img3, caption='All (2014-2016 combinado)', use_container_width=True)
+            else:
+                st.warning(f'Figura não encontrada: {img3}')
         
         with fig_tab2:
             st.markdown("**Figura 2: Matriz de Correlação entre Features**")
-            st.image('models/figures/fig2_feature_correlation.png', width='stretch')
+            st.image('models/figures/fig2_feature_correlation.png', use_container_width=True)
             st.caption("Heatmap mostrando a correlação linear entre as três features utilizadas. Valores próximos de 1/-1 indicam forte correlação positiva/negativa.")
         
         with fig_tab3:
             st.markdown("**Figura 3: Distribuição das Features por Resultado**")
-            st.image('models/figures/fig3_boxplots_by_result.png', width='stretch')
+            st.image('models/figures/fig3_boxplots_by_result.png', use_container_width=True)
             st.caption("Boxplots mostrando como cada feature se distribui por tipo de resultado (Vitória Casa, Empate, Vitória Visitante).")
         
         with fig_tab4:
             st.markdown("**Figura 4: Comparação de Importância de Features**")
-            st.image('models/figures/fig4_feature_importance_comparison.png', width='stretch')
+            st.image('models/figures/fig4_feature_importance_comparison.png', use_container_width=True)
             st.caption("Comparação lado a lado da importância das features segundo Random Forest e XGBoost.")
         
         with fig_tab5:
             st.markdown("**Figura 5: Curvas de Calibração por Classe**")
-            st.image('models/figures/fig5_calibration_comparison.png', width='stretch')
+            st.image('models/figures/fig5_calibration_comparison.png', use_container_width=True)
             st.caption("Análise de calibração das probabilidades preditas. Curvas próximas da diagonal indicam boa calibração.")
         
         with fig_tab6:
-            st.markdown("**Figura 6: Comparação de Métricas (Barras Agrupadas)**")
-            st.image('models/figures/fig6_metrics_comparison_bars.png', width='stretch')
-            st.caption("Visualização comparativa das principais métricas (Accuracy, Precision, Recall, F1-Score) entre os três modelos.")
+            st.markdown("**Figura 6: Comparação de Métricas (Barras Agrupadas) por Temporada**")
+            st.caption("Visualização comparativa das principais métricas (Accuracy, Precision, Recall, F1-Score) entre todos os modelos, incluindo ensemble.")
+            
+            # Mostrar os três gráficos empilhados verticalmente
+            st.markdown("**Temporada 2014-2015:**")
+            img1 = 'models/figures/fig6_metrics_comparison_bars_2014-2015.png'
+            if os.path.exists(img1):
+                st.image(img1, use_container_width=True)
+            else:
+                st.warning(f'Figura não encontrada: {img1}')
+            
+            st.markdown("**Temporada 2015-2016:**")
+            img2 = 'models/figures/fig6_metrics_comparison_bars_2015-2016.png'
+            if os.path.exists(img2):
+                st.image(img2, use_container_width=True)
+            else:
+                st.warning(f'Figura não encontrada: {img2}')
+            
+            st.markdown("**All (2014-2016 combinado):**")
+            img3 = 'models/figures/fig6_metrics_comparison_bars_All.png'
+            if os.path.exists(img3):
+                st.image(img3, use_container_width=True)
+            else:
+                st.warning(f'Figura não encontrada: {img3}')
         
         st.markdown("---")
         st.success("✅ Todas as tabelas e figuras foram geradas e podem ser exportadas para o artigo científico!")
@@ -571,3 +828,15 @@ if page == "Distribuições e Importância de Features":
             st.pyplot(fi_fig)
     else:
         st.write("Treine o RandomForest (execute main.py) para mostrar importâncias.")
+
+    # Mostrar visualizações SHAP, se existirem (empilhadas verticalmente)
+    shap_bar = 'models/figures/feature_importance_randomforest.png'
+    shap_bees = 'models/figures/shap_summary_beeswarm.png'
+    if os.path.exists(shap_bar) or os.path.exists(shap_bees):
+        st.subheader("Visualizações SHAP")
+        if os.path.exists(shap_bar):
+            st.image(shap_bar, caption='SHAP — Importância (Bar)', use_container_width=True)
+        if os.path.exists(shap_bees):
+            st.image(shap_bees, caption='SHAP — Beeswarm', use_container_width=True)
+    else:
+        st.info("Visualizações SHAP não encontradas. Rode `python scripts/shap_analysis.py` para gerar.")

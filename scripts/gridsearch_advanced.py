@@ -22,17 +22,22 @@ from sklearn.utils.class_weight import compute_sample_weight
 from src.preprocessing import load_data
 from src.feature_engineering import calculate_team_stats
 
+def rps(y_true, y_prob):
+    """Ranked Probability Score - métrica principal do artigo"""
+    y_true = y_true.astype(int)
+    y_true_onehot = np.eye(3)[y_true]
+    y_true_cum = np.cumsum(y_true_onehot, axis=1)
+    y_prob_cum = np.cumsum(y_prob, axis=1)
+    k_minus_1 = y_prob.shape[1] - 1 if y_prob.shape[1] > 1 else 1
+    return np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1)) / k_minus_1
+
 class RPSScorer:
     """Scorer RPS customizado para GridSearch"""
     
     def __call__(self, estimator, X, y):
         """Calcula o RPS score"""
-        y_pred_proba = estimator.predict_proba(X)
-        y_true_onehot = np.eye(3)[y]
-        y_true_cum = np.cumsum(y_true_onehot, axis=1)
-        y_prob_cum = np.cumsum(y_pred_proba, axis=1)
         # Retorna negativo porque queremos minimizar RPS, mas GridSearch maximiza
-        return -np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1))
+        return -rps(y, estimator.predict_proba(X))
     
     def _score_func(self, *args, **kwargs):
         """Para compatibilidade com make_scorer"""
@@ -43,14 +48,19 @@ print("="*60)
 print("GRIDSEARCH AVANÇADO - OTIMIZAÇÃO DE HIPERPARÂMETROS")
 print("="*60)
 
-# Carregar dados
-df = load_data('data/epl.csv')
+# Carregar dados (usar conjunto combinado de temporadas presente em data/)
+from src.preprocessing import load_all_data
+df = load_all_data()
 features = calculate_team_stats(df)
 
-# Usar apenas dados de treino para GridSearch
-train = features[features['Season'] <= 2018]
+# Separar treino (2005-2014) e teste (2014-2016)
+train = features[features['Season'] <= 2014]
+test = features[features['Season'] > 2014]
+
 X_train = train.drop(['Result','Season'], axis=1)
 y_train = train['Result']
+X_test = test.drop(['Result','Season'], axis=1)
+y_test = test['Result']
 
 # Sample weights para modelos que suportam
 sample_weights = compute_sample_weight('balanced', y_train)
@@ -61,7 +71,8 @@ rps_scorer_fn = RPSScorer()
 # Cross-validation temporal (evita data leakage)
 tscv = TimeSeriesSplit(n_splits=5)
 
-print(f"\nDataset de treino: {len(X_train)} partidas")
+print(f"\nDataset de treino: {len(X_train)} partidas (2005-2014)")
+print(f"Dataset de teste: {len(X_test)} partidas (2014-2016)")
 print(f"Cross-validation: TimeSeriesSplit com 5 splits")
 print(f"Métrica de otimização: RPS (Ranked Probability Score)\n")
 
@@ -192,12 +203,25 @@ for param, value in nb_grid.best_params_.items():
 print(f"✓ Melhor RPS (CV): {-nb_grid.best_score_:.4f}")
 
 # ============================================================
-# Salvar resultados
+# 5. AVALIAÇÃO POR TEMPORADA (ARTIGO CIENTÍFICO)
 # ============================================================
 print("\n" + "="*60)
-print("SALVANDO RESULTADOS")
+print("AVALIAÇÃO POR TEMPORADA (2014-2015, 2015-2016, ALL)")
 print("="*60)
+print("\nMetodologia do artigo: Avaliar separadamente em cada temporada de teste")
+print("-"*60)
 
+# Temporadas de teste
+seasons_info = [
+    ('2014-2015', 2015),
+    ('2015-2016', 2016),
+    ('All', None)
+]
+
+# Resultados por temporada
+seasonal_results = []
+
+# Preparar dicionário de modelos otimizados (necessário para avaliação por temporada)
 best_models = {
     'SVM_optimized': {
         'model': svm_grid.best_estimator_,
@@ -221,6 +245,55 @@ best_models = {
     },
 }
 
+for season_name, season_value in seasons_info:
+    print(f"\n{'='*50}")
+    print(f"TEMPORADA: {season_name}")
+    print(f"{'='*50}")
+    
+    # Filtrar dados da temporada
+    if season_value is None:
+        # Todas as temporadas
+        test_season = test
+    else:
+        # Temporada específica
+        test_season = test[test['Season'] == season_value]
+    
+    X_season = test_season.drop(['Result', 'Season'], axis=1)
+    y_season = test_season['Result']
+    
+    print(f"Total de jogos: {len(y_season)}\n")
+    print(f"{'Modelo':<25} {'RPS':>10}")
+    print("-" * 50)
+    
+    # Avaliar cada modelo
+    for model_name, model_info in best_models.items():
+        model = model_info['model']
+        y_pred_proba = model.predict_proba(X_season)
+        
+        # Calcular RPS
+        season_rps = rps(y_season.values, y_pred_proba)
+        
+        # Nome do modelo para display (remover _optimized)
+        display_name = model_name.replace('_optimized', '')
+        
+        print(f"{display_name:<25} {season_rps:>10.4f}")
+        
+        # Armazenar resultado
+        seasonal_results.append({
+            'Temporada': season_name,
+            'Modelo': display_name,
+            'RPS': season_rps,
+            'Jogos': len(y_season)
+        })
+
+"""
+Após avaliação por temporada, salvamos os resultados detalhados e os modelos otimizados.
+"""
+
+# Adicionar resultados por temporada aos modelos
+for model_info in best_models.values():
+    model_info['seasonal_results'] = []
+
 joblib.dump(best_models, 'models/optimized_models.pkl')
 print("✓ Modelos otimizados salvos em: models/optimized_models.pkl")
 
@@ -232,11 +305,32 @@ results_df = pd.DataFrame({
     'NaiveBayes': [nb_grid.best_params_, -nb_grid.best_score_],
 }, index=['best_params', 'best_rps_cv']).T
 
-print(f"\n✓ Resumo dos resultados:")
+print(f"\n✓ Resumo dos resultados (CV):")
 print(results_df)
 
 results_df.to_csv('models/gridsearch_results.csv')
-print(f"✓ Resultados salvos em: models/gridsearch_results.csv")
+print(f"✓ Resultados de CV salvos em: models/gridsearch_results.csv")
+
+# Salvar resultados por temporada
+df_seasonal = pd.DataFrame(seasonal_results)
+
+# Reorganizar para formato do artigo (temporadas como linhas, modelos como colunas)
+df_pivot = df_seasonal.pivot(index='Temporada', columns='Modelo', values='RPS')
+
+# Ordenar colunas
+model_order = ['SVM', 'RandomForest', 'XGBoost', 'NaiveBayes']
+df_pivot = df_pivot[[col for col in model_order if col in df_pivot.columns]]
+
+# Ordenar linhas (2014-2015, 2015-2016, All)
+season_order = ['2014-2015', '2015-2016', 'All']
+df_pivot = df_pivot.reindex(season_order)
+
+print("\n📊 RESULTADOS POR TEMPORADA:")
+print(df_pivot.to_string())
+
+# Salvar CSV formato artigo
+df_pivot.to_csv('models/gridsearch_advanced_por_temporada.csv')
+print("\n✓ Resultados por temporada salvos em: models/gridsearch_advanced_por_temporada.csv")
 
 print("\n" + "="*60)
 print("GRIDSEARCH CONCLUÍDO!")
