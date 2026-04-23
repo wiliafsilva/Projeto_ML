@@ -3,6 +3,14 @@ from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 from src.train_models import train_models
 import os
+import pandas as pd
+
+try:
+    from src.gans import TabularGAN
+    GAN_AVAILABLE = True
+except Exception:
+    GAN_AVAILABLE = False
+    TabularGAN = None
 
 def main():
     """
@@ -53,6 +61,39 @@ def main():
     print("ETAPA 3: TREINAMENTO E AVALIAÇÃO DOS MODELOS")
     print("="*80)
     train_models(features_train, features_test)
+    
+    # ======= Opção: geração de dados sintéticos via GAN tabular =======
+    # Disponível apenas se SDV estiver instalado e a flag estiver ligada.
+    if os.environ.get("AUGMENT_WITH_GAN", "0").lower() in {"1", "true", "yes", "on"} and GAN_AVAILABLE:
+        try:
+            print("\n[AUGMENT] Iniciando geração de dados sintéticos com TabularGAN (por Season)...")
+            # Definir as colunas de features usadas pelo modelo (excluir 'Result' e 'Season')
+            feature_cols = [c for c in features_train.columns if c not in {"Result", "Season"}]
+            gan = TabularGAN(feature_cols=feature_cols)
+            gan.fit(features_train)
+
+            # Distribuição de Seasons para geração
+            season_counts = features_train['Season'].value_counts()
+            augment_ratio = float(os.environ.get("GAN_AUGMENT_RATIO", 0.5))
+            synthetic_parts = []
+            for season, count in season_counts.items():
+                n_samples = max(1, int(count * augment_ratio))
+                X_synth = gan.generate(n_samples, season=str(season))
+                if not X_synth.empty:
+                    X_synth = X_synth.copy()
+                    X_synth['Season'] = season
+                    synthetic_parts.append(X_synth)
+
+            if synthetic_parts:
+                df_synth_features = pd.concat(synthetic_parts, ignore_index=True)
+                synthetic_path = os.path.join("data", "synthetic_features_gan.csv")
+                os.makedirs(os.path.dirname(synthetic_path), exist_ok=True)
+                df_synth_features.to_csv(synthetic_path, index=False)
+                print(f"[AUGMENT] Dados sintéticos salvos em: {synthetic_path} (linhas={len(df_synth_features)})")
+            else:
+                print("[AUGMENT] Sem amostras sintéticas geradas para as Seasons encontradas.")
+        except Exception as e:
+            print(f"[AUGMENT] Aviso: falha na geração de dados sintéticos: {e}")
     
     print("\n" + "="*80)
     print("PIPELINE CONCLUÍDO COM SUCESSO!")
