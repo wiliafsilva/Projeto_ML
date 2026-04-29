@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier, StackingC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
+from src.models.gan_model import GANClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.utils.class_weight import compute_sample_weight
@@ -178,6 +179,15 @@ def train_models(df_train, df_test):
         ),
         "NaiveBayes": GaussianNB(
             var_smoothing=1e-05       # DIA 5: Otimizado via GridSearch
+        ),
+        "GAN": GANClassifier(
+            epochs=50,
+            batch_size=64,
+            lr=1e-3,
+            noise_dim=32,
+            gen_hidden=(128, 128),
+            disc_hidden=(128, 128),
+            random_state=42
         ),
     }
 
