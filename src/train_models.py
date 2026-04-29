@@ -180,7 +180,19 @@ def train_models(df_train, df_test):
         "NaiveBayes": GaussianNB(
             var_smoothing=1e-05       # DIA 5: Otimizado via GridSearch
         ),
-        "GAN": GANClassifier(
+    }
+
+    # ===== GAN-based augmentation (opcional) =====
+    augmentation_enabled = False
+    X_aug = None
+    y_aug = None
+    try:
+        # Train GAN on Class B features (same used by RandomForest/XGBoost)
+        df_train_gan = prepare_features_by_model(df_train, 'RandomForest')
+        X_train_gan = df_train_gan.drop(['Result', 'Season'], axis=1)
+        y_train_gan = df_train_gan['Result']
+
+        gan = GANClassifier(
             epochs=50,
             batch_size=64,
             lr=1e-3,
@@ -188,8 +200,27 @@ def train_models(df_train, df_test):
             gen_hidden=(128, 128),
             disc_hidden=(128, 128),
             random_state=42
-        ),
-    }
+        )
+
+        print("\n[GAN AUG] Treinando GAN para geração de amostras sintéticas (Classe B features)...")
+        gan.fit(X_train_gan.values, y_train_gan.values)
+
+        # Balancear: gerar (max_count - count) por classe
+        counts = y_train_gan.value_counts().to_dict()
+        max_count = max(counts.values())
+        counts_to_gen = {int(k): int(max_count - v) for k, v in counts.items()}
+
+        X_synth, y_synth = gan.generate(counts=counts_to_gen)
+        if X_synth.shape[0] > 0:
+            X_aug = pd.DataFrame(np.vstack([X_train_gan.values, X_synth]), columns=X_train_gan.columns)
+            y_aug = pd.Series(np.concatenate([y_train_gan.values, y_synth]))
+            augmentation_enabled = True
+            print(f"[GAN AUG] Geradas {len(y_synth)} amostras sintéticas. Treino aumentado para {len(y_aug)} amostras (balanceado).")
+        else:
+            print("[GAN AUG] Nenhuma amostra sintética gerada. Prosseguindo sem augmentation.")
+    except Exception as e:
+        print(f"[GAN AUG] Falha ao treinar/gerar com GAN: {e}. Prosseguindo sem augmentation.")
+        augmentation_enabled = False
 
     results = {}
 
@@ -211,8 +242,20 @@ def train_models(df_train, df_test):
         print(f"Features para treino: {X_train.shape[1]}")
         print(f"Amostras treino: {X_train.shape[0]}, Amostras teste: {X_test.shape[0]}")
         
-        # Treinar com sample_weight para XGBoost e NaiveBayes
-        if name in ["XGBoost", "NaiveBayes"]:
+        # Caso augmentation esteja habilitado, substituir dados de treino
+        if augmentation_enabled and name in ["RandomForest", "XGBoost"] and X_aug is not None and y_aug is not None:
+            # Garantir colunas alinhadas
+            # X_aug foi criado a partir das mesmas Class B features usadas acima
+            X_train = X_aug.reset_index(drop=True)
+            y_train = y_aug.reset_index(drop=True)
+            print(f"[GAN AUG] Usando dataset aumentado para {name}: {len(y_train)} amostras (inclui sintéticas).")
+
+        # Treinar com sample_weight para XGBoost e NaiveBayes, exceto quando usamos dados aumentados
+        if name == "XGBoost" and augmentation_enabled:
+            # Quando o treino foi aumentado, sample_weights não corresponde ao novo conjunto; ignora-los
+            print("[GAN AUG] Ignorando sample_weight para XGBoost devido a dataset aumentado.")
+            model.fit(X_train, y_train)
+        elif name in ["XGBoost", "NaiveBayes"]:
             model.fit(X_train, y_train, sample_weight=sample_weights)
         else:
             model.fit(X_train, y_train)

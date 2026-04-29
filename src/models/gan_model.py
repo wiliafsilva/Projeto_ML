@@ -218,6 +218,47 @@ class GANClassifier:
         probs = self.predict_proba(X)
         return np.argmax(probs, axis=1)
 
+    def generate(self, n_per_class=None, counts=None):
+        """
+        Generate synthetic samples.
+
+        - If counts is provided, it should be a dict {label: n_samples}.
+        - Else if n_per_class is provided (int), generates that many samples for each class.
+
+        Returns: X_synth (np.ndarray), y_synth (np.ndarray)
+        """
+        if self.generator is None:
+            raise RuntimeError("Generator não está treinado. Chame fit() antes de generate().")
+
+        # Determine classes
+        if self.label_dim is None:
+            raise RuntimeError("label_dim desconhecido no gerador.")
+
+        if counts is None:
+            if n_per_class is None:
+                raise ValueError("Forneça n_per_class ou counts.")
+            counts = {i: n_per_class for i in range(self.label_dim)}
+
+        xs = []
+        ys = []
+        self.generator.eval()
+        with torch.no_grad():
+            for label, n in counts.items():
+                if n <= 0:
+                    continue
+                z = torch.randn(n, self.noise_dim, device=self.device)
+                labels_onehot = torch.nn.functional.one_hot(torch.full((n,), label, dtype=torch.long), num_classes=self.label_dim).float().to(self.device)
+                gen_x = self.generator(z, labels_onehot)
+                xs.append(gen_x.cpu().numpy())
+                ys.append(np.full(n, label, dtype=np.int64))
+
+        if len(xs) == 0:
+            return np.empty((0, self.input_dim), dtype=np.float32), np.empty((0,), dtype=np.int64)
+
+        X_synth = np.vstack(xs)
+        y_synth = np.concatenate(ys)
+        return X_synth, y_synth
+
     # Make object picklable by saving parameters and state_dicts
     def __getstate__(self):
         state = self.__dict__.copy()
