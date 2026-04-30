@@ -208,9 +208,9 @@ class GANClassifier:
         # features + label; to get unconditional class probabilities we can feed zero vector and rely on
         # class_head output.
         batch_size = xs.size(0)
-        labels_onehot = torch.zeros(batch_size, self.label_dim, device=self.device)
+        labels_onehot = torch.zeros(batch_size, self.label_dim, device=self.device) # type: ignore
         with torch.no_grad():
-            _, class_logit = self.discriminator(xs, labels_onehot)
+            _, class_logit = self.discriminator(xs, labels_onehot) # type: ignore
             probs = torch.softmax(class_logit, dim=1).cpu().numpy()
         return probs
 
@@ -253,7 +253,7 @@ class GANClassifier:
                 ys.append(np.full(n, label, dtype=np.int64))
 
         if len(xs) == 0:
-            return np.empty((0, self.input_dim), dtype=np.float32), np.empty((0,), dtype=np.int64)
+            return np.empty((0, self.input_dim), dtype=np.float32), np.empty((0,), dtype=np.int64) # type: ignore
 
         X_synth = np.vstack(xs)
         y_synth = np.concatenate(ys)
