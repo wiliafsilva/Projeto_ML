@@ -4,9 +4,11 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier, StackingC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
+from src.models.gan_model import GANClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.base import clone as sk_clone
 import joblib
 import numpy as np
 import pandas as pd
@@ -181,80 +183,171 @@ def train_models(df_train, df_test):
         ),
     }
 
+    # ===== GAN-based augmentation (opcional) =====
+    augmentation_enabled = False
+    X_aug = None
+    y_aug = None
+    try:
+        # Train GAN on Class B features (same used by RandomForest/XGBoost)
+        df_train_gan = prepare_features_by_model(df_train, 'RandomForest')
+        X_train_gan = df_train_gan.drop(['Result', 'Season'], axis=1)
+        y_train_gan = df_train_gan['Result']
+
+        gan = GANClassifier(
+            epochs=50,
+            batch_size=64,
+            lr=1e-3,
+            noise_dim=32,
+            gen_hidden=(128, 128),
+            disc_hidden=(128, 128),
+            random_state=42
+        )
+
+        print("\n[GAN AUG] Treinando GAN para geração de amostras sintéticas (Classe B features)...")
+        gan.fit(X_train_gan.values, y_train_gan.values)
+
+        # Balancear: gerar (max_count - count) por classe
+        counts = y_train_gan.value_counts().to_dict()
+        max_count = max(counts.values())
+        counts_to_gen = {int(k): int(max_count - v) for k, v in counts.items()}
+
+        X_synth, y_synth = gan.generate(counts=counts_to_gen)
+        if X_synth.shape[0] > 0:
+            X_aug = pd.DataFrame(np.vstack([X_train_gan.values, X_synth]), columns=X_train_gan.columns)
+            y_aug = pd.Series(np.concatenate([y_train_gan.values, y_synth]))
+            augmentation_enabled = True
+            print(f"[GAN AUG] Geradas {len(y_synth)} amostras sintéticas. Treino aumentado para {len(y_aug)} amostras (balanceado).")
+        else:
+            print("[GAN AUG] Nenhuma amostra sintética gerada. Prosseguindo sem augmentation.")
+    except Exception as e:
+        print(f"[GAN AUG] Falha ao treinar/gerar com GAN: {e}. Prosseguindo sem augmentation.")
+        augmentation_enabled = False
+
     results = {}
+    comparisons = {}
+
+    def _train_and_eval(estimator, X_tr, y_tr, X_te, y_te, name, use_sample_weight=False):
+        """Train estimator (clone expected) and evaluate; returns trained_estimator and metrics dict."""
+        clf = sk_clone(estimator)
+        # fit with or without sample_weight
+        if use_sample_weight:
+            try:
+                clf.fit(X_tr, y_tr, sample_weight=sample_weights)
+            except TypeError:
+                # fallback if estimator doesn't accept sample_weight
+                clf.fit(X_tr, y_tr)
+        else:
+            clf.fit(X_tr, y_tr)
+
+        preds = clf.predict(X_te)
+        probs = clf.predict_proba(X_te)
+
+        acc = accuracy_score(y_te, preds)
+        f1 = f1_score(y_te, preds, average='macro', zero_division=0)
+        score_rps = rps(y_te.values, probs)
+
+        # Calibration step (same logic as before)
+        if name in ["RandomForest", "XGBoost", "NaiveBayes"]:
+            calibrated_model = CalibratedClassifierCV(clf, method='isotonic', cv=3)
+            if name in ["XGBoost", "NaiveBayes"] and use_sample_weight:
+                try:
+                    calibrated_model.fit(X_tr, y_tr, sample_weight=sample_weights)
+                except TypeError:
+                    calibrated_model.fit(X_tr, y_tr)
+            else:
+                calibrated_model.fit(X_tr, y_tr)
+
+            probs_cal = calibrated_model.predict_proba(X_te)
+            preds_cal = calibrated_model.predict(X_te)
+
+            acc_cal = accuracy_score(y_te, preds_cal)
+            f1_cal = f1_score(y_te, preds_cal, average='macro', zero_division=0)
+            score_rps_cal = rps(y_te.values, probs_cal)
+
+            # Use calibrated if RPS improved
+            if score_rps_cal < score_rps:
+                clf = calibrated_model
+                preds = preds_cal
+                probs = probs_cal
+                acc = acc_cal
+                f1 = f1_cal
+                score_rps = score_rps_cal
+
+        metrics = {"accuracy": acc, "f1": f1, "rps": score_rps, "preds": preds, "probs": probs}
+        return clf, metrics
 
     for name, model in models.items():
         print(f"\n{'='*60}")
         print(f"Treinando: {name}")
         print(f"{'='*60}")
-        
+
         # Preparar features específicas para este modelo (Class A vs Class B)
         df_train_model = prepare_features_by_model(df_train, name)
         df_test_model = prepare_features_by_model(df_test, name)
-        
-        # Separar features e labels
-        X_train = df_train_model.drop(['Result', 'Season'], axis=1)
-        y_train = df_train_model['Result']
+
+        # Separar features e labels (baseline)
+        X_train_base = df_train_model.drop(['Result', 'Season'], axis=1)
+        y_train_base = df_train_model['Result']
         X_test = df_test_model.drop(['Result', 'Season'], axis=1)
         y_test = df_test_model['Result']
-        
-        print(f"Features para treino: {X_train.shape[1]}")
-        print(f"Amostras treino: {X_train.shape[0]}, Amostras teste: {X_test.shape[0]}")
-        
-        # Treinar com sample_weight para XGBoost e NaiveBayes
-        if name in ["XGBoost", "NaiveBayes"]:
-            model.fit(X_train, y_train, sample_weight=sample_weights)
-        else:
-            model.fit(X_train, y_train)
-        
-        preds = model.predict(X_test)
-        probs = model.predict_proba(X_test)
 
-        acc = accuracy_score(y_test, preds)
-        f1 = f1_score(y_test, preds, average='macro', zero_division=0)
-        score_rps = rps(y_test.values, probs)
-        
-        print(f"Modelo Base - Acurácia: {acc:.4f} | F1: {f1:.4f} | RPS: {score_rps:.4f}")
+        print(f"Features para treino: {X_train_base.shape[1]}")
+        print(f"Amostras treino: {X_train_base.shape[0]}, Amostras teste: {X_test.shape[0]}")
 
-        # Calibrar probabilidades (exceto SVM que já tem boa calibração)
-        if name in ["RandomForest", "XGBoost", "NaiveBayes"]:
-            print(f"Aplicando calibração de probabilidades...")
-            calibrated_model = CalibratedClassifierCV(model, method='isotonic', cv=3)
-            
-            if name in ["XGBoost", "NaiveBayes"]:
-                calibrated_model.fit(X_train, y_train, sample_weight=sample_weights)
-            else:
-                calibrated_model.fit(X_train, y_train)
-            
-            probs_cal = calibrated_model.predict_proba(X_test)
-            preds_cal = calibrated_model.predict(X_test)
-            
-            acc_cal = accuracy_score(y_test, preds_cal)
-            f1_cal = f1_score(y_test, preds_cal, average='macro', zero_division=0)
-            score_rps_cal = rps(y_test.values, probs_cal)
-            
-            print(f"Modelo Calibrado - Acurácia: {acc_cal:.4f} | F1: {f1_cal:.4f} | RPS: {score_rps_cal:.4f}")
-            
-            # Usar modelo calibrado se melhorar RPS
-            if score_rps_cal < score_rps:
-                print(f"✓ Calibração melhorou RPS em {(score_rps - score_rps_cal):.4f}! Usando modelo calibrado.")
-                model = calibrated_model
-                probs = probs_cal
-                preds = preds_cal
-                acc = acc_cal
-                f1 = f1_cal
-                score_rps = score_rps_cal
-            else:
-                print(f"✗ Calibração não melhorou RPS. Mantendo modelo base.")
+        # Baseline training
+        use_sw = name in ["XGBoost", "NaiveBayes"]
+        clf_base, metrics_base = _train_and_eval(model, X_train_base, y_train_base, X_test, y_test, name, use_sample_weight=use_sw)
+        print(f"Baseline - Acurácia: {metrics_base['accuracy']:.4f} | F1: {metrics_base['f1']:.4f} | RPS: {metrics_base['rps']:.4f}")
 
+        # Save baseline model in results for downstream ensemble/usage
         results[name] = {
-            "model": model,
-            "accuracy": acc,
-            "f1": f1,
-            "rps": score_rps,
-            "feature_columns": list(X_train.columns)  # Salvar colunas usadas
+            "model": clf_base,
+            "accuracy": metrics_base['accuracy'],
+            "f1": metrics_base['f1'],
+            "rps": metrics_base['rps'],
+            "feature_columns": list(X_train_base.columns)
+        }
+
+        # Augmented training: decide dataset
+        if augmentation_enabled and name in ["RandomForest", "XGBoost"] and X_aug is not None and y_aug is not None:
+            X_train_aug = X_aug.reset_index(drop=True)
+            y_train_aug = y_aug.reset_index(drop=True)
+            print(f"[GAN AUG] Usando dataset aumentado para {name}: {len(y_train_aug)} amostras (inclui sintéticas).")
+            # When using augmented data, sample_weights from original are invalid; don't use them
+            use_sw_aug = False
+        else:
+            X_train_aug = X_train_base
+            y_train_aug = y_train_base
+            use_sw_aug = use_sw
+
+        clf_aug, metrics_aug = _train_and_eval(model, X_train_aug, y_train_aug, X_test, y_test, name, use_sample_weight=use_sw_aug)
+        print(f"Augmented - Acurácia: {metrics_aug['accuracy']:.4f} | F1: {metrics_aug['f1']:.4f} | RPS: {metrics_aug['rps']:.4f}")
+
+        # Save comparison
+        comparisons[name] = {
+            'baseline': {k: metrics_base[k] for k in ['accuracy', 'f1', 'rps']},
+            'augmented': {k: metrics_aug[k] for k in ['accuracy', 'f1', 'rps']},
+            'delta': {k: (metrics_aug[k] - metrics_base[k]) for k in ['accuracy', 'f1', 'rps']}
         }
     
+    # ===== Comparação entre Baseline e Augmented =====
+    print(f"\n{'='*80}")
+    print("COMPARAÇÃO: Baseline vs GAN Augmentation")
+    print(f"{'='*80}")
+    print(f"{'Modelo':<20} {'Cenário':<12} {'Accuracy':>8} {'F1':>8} {'RPS':>8} {'ΔAccuracy':>10} {'ΔF1':>8} {'ΔRPS':>8}")
+    print('-'*90)
+    for name, comp in comparisons.items():
+        base = comp['baseline']
+        aug = comp['augmented']
+        delta = comp['delta']
+        # Print baseline (use '-' placeholders for deltas)
+        print(f"{name:<20} {'Baseline':<12} {base['accuracy']:8.4f} {base['f1']:8.4f} {base['rps']:8.4f} {'-':>10} {'-':>8} {'-':>8}")
+        # Print augmented with deltas
+        sign_acc = '+' if delta['accuracy'] >= 0 else ''
+        sign_f1 = '+' if delta['f1'] >= 0 else ''
+        sign_rps = '+' if delta['rps'] >= 0 else ''
+        print(f"{name:<20} {'Augmented':<12} {aug['accuracy']:8.4f} {aug['f1']:8.4f} {aug['rps']:8.4f} {sign_acc}{delta['accuracy']:9.4f} {sign_f1}{delta['f1']:7.4f} {sign_rps}{delta['rps']:7.4f}")
+        print('-'*90)
     # ======== ENSEMBLE METHODS (DIA 7) ========
     print(f"\n{'='*80}")
     print("ENSEMBLE METHODS - COMBINANDO MODELOS FORTES")
