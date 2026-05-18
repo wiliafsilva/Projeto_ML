@@ -13,6 +13,13 @@ import joblib
 import numpy as np
 import pandas as pd
 
+# Autoencoder & Scaler
+from src.models.autoencoder import KerasAutoencoder, get_package_versions
+from sklearn.preprocessing import StandardScaler
+import os
+import hashlib
+
+
 def rps(y_true, y_prob):
     y_true = y_true.astype(int)  # Garantir que y_true é do tipo inteiro
     y_true_onehot = np.eye(3)[y_true]
@@ -108,6 +115,11 @@ def prepare_features_by_model(df, model_name):
 def train_models(df_train, df_test):
     """
     Treina e avalia modelos usando dados de treino e teste separados.
+
+    # Ensure autoencoder artifact directory exists at the top of pipeline
+    AUTOENCODER_DIR = "models/autoencoders/"
+    os.makedirs(AUTOENCODER_DIR, exist_ok=True)
+
     Segue a metodologia do artigo:
     - Treino: 2005-2014 (9 temporadas)
     - Teste: 2014-2016 (2 temporadas)
@@ -294,18 +306,109 @@ def train_models(df_train, df_test):
         print(f"Features para treino: {X_train_base.shape[1]}")
         print(f"Amostras treino: {X_train_base.shape[0]}, Amostras teste: {X_test.shape[0]}")
 
-        # Baseline training
+        # ----- BASELINE SCALED BRANCH -----
         use_sw = name in ["XGBoost", "NaiveBayes"]
-        clf_base, metrics_base = _train_and_eval(model, X_train_base, y_train_base, X_test, y_test, name, use_sample_weight=use_sw)
-        print(f"Baseline - Acurácia: {metrics_base['accuracy']:.4f} | F1: {metrics_base['f1']:.4f} | RPS: {metrics_base['rps']:.4f}")
-
-        # Save baseline model in results for downstream ensemble/usage
-        results[name] = {
+        scaler_baseline = StandardScaler()
+        scaler_baseline.fit(X_train_base)
+        # Validate scaler alignment
+        if not np.array_equal(scaler_baseline.feature_names_in_, X_train_base.columns):
+            raise ValueError(f"Scaler feature_names_in_ does not match training columns for {name}")
+        # Save scaler
+        scaler_baseline_path = os.path.join(AUTOENCODER_DIR, f"{name}_baseline_scaled.scaler.pkl")
+        joblib.dump(scaler_baseline, scaler_baseline_path)
+        # Transform features
+        X_train_baseline_scaled = pd.DataFrame(scaler_baseline.transform(X_train_base),
+                                               columns=X_train_base.columns, index=X_train_base.index)
+        X_test_baseline_scaled = pd.DataFrame(scaler_baseline.transform(X_test),
+                                              columns=X_test.columns, index=X_test.index)
+        # Robust validation (NaN/inf)
+        if np.any(np.isnan(X_train_baseline_scaled)) or np.any(np.isinf(X_train_baseline_scaled)):
+            raise RuntimeError(f"[Baseline Scaled] Detected NaN or Inf in X_train after scaling ({name})")
+        if np.any(np.isnan(X_test_baseline_scaled)) or np.any(np.isinf(X_test_baseline_scaled)):
+            raise RuntimeError(f"[Baseline Scaled] Detected NaN or Inf in X_test after scaling ({name})")
+        # Compute feature order hash
+        baseline_feature_str = ",".join(X_train_baseline_scaled.columns)
+        baseline_feature_hash = hashlib.sha256(baseline_feature_str.encode()).hexdigest()
+        # Training
+        clf_base, metrics_base = _train_and_eval(
+            model, X_train_baseline_scaled, y_train_base, X_test_baseline_scaled, y_test, name, use_sample_weight=use_sw)
+        print(f"Baseline SCALED - Acurácia: {metrics_base['accuracy']:.4f} | F1: {metrics_base['f1']:.4f} | RPS: {metrics_base['rps']:.4f}")
+        # Metadata and struct
+        baseline_input_dim = X_train_baseline_scaled.shape[1]
+        results[name] = {}
+        results[name]["baseline_scaled"] = {
             "model": clf_base,
             "accuracy": metrics_base['accuracy'],
             "f1": metrics_base['f1'],
             "rps": metrics_base['rps'],
-            "feature_columns": list(X_train_base.columns)
+            "feature_columns": list(X_train_baseline_scaled.columns),
+            "feature_hash": baseline_feature_hash,
+            "scaler_path": scaler_baseline_path,
+            "input_dim": baseline_input_dim,
+            "latent_dim": None,
+            "compression_ratio": None,
+            "pipeline_type": "baseline_scaled",
+            "experiment_id": f"{name}_baseline_scaled_{baseline_input_dim}_{str(baseline_feature_hash)[:8]}",
+            "version_info": get_package_versions(),
+        }
+        # Backward compatibility for legacy consumers
+        # Provide 'model', 'accuracy', etc. at top-level (warn if legacy access detected elsewhere)
+        results[name]["model"] = clf_base
+        results[name]["accuracy"] = metrics_base['accuracy']
+        results[name]["f1"] = metrics_base['f1']
+        results[name]["rps"] = metrics_base['rps']
+        results[name]["feature_columns"] = list(X_train_baseline_scaled.columns)
+
+        # ----- AUTOENCODER LATENT BRANCH -----
+        latent_dim = min(16, X_train_baseline_scaled.shape[1]//2)
+        auto_model_name = f"{name}_auto_{latent_dim}_seed42"
+        autoencoder = KerasAutoencoder(input_dim=X_train_baseline_scaled.shape[1], latent_dim=latent_dim, random_state=42)
+        # Fit autoencoder on scaled features
+        autoencoder.fit(X_train_baseline_scaled)
+        # Transform -> latent train/test; validate
+        X_train_latent = autoencoder.transform(X_train_baseline_scaled)
+        X_test_latent = autoencoder.transform(X_test_baseline_scaled)
+        # Determine shape/NaN/Inf
+        if X_train_latent.shape[1] != latent_dim or X_test_latent.shape[1] != latent_dim:
+            raise RuntimeError(f"[Autoencoder] Latent dim mismatch for {name}")
+        if np.any(np.isnan(X_train_latent)) or np.any(np.isnan(X_test_latent)) or \
+           np.any(np.isinf(X_train_latent)) or np.any(np.isinf(X_test_latent)):
+            raise RuntimeError(f"[Autoencoder] Detected NaN/Inf in latent features ({name})")
+        # Assign deterministic feature names
+        latent_feature_names = [f"ae_feature_{i}" for i in range(latent_dim)]
+        X_train_latent_df = pd.DataFrame(X_train_latent, columns=latent_feature_names, index=X_train_baseline_scaled.index)
+        X_test_latent_df = pd.DataFrame(X_test_latent, columns=latent_feature_names, index=X_test_baseline_scaled.index)
+        # Hash input/latent feature order
+        latent_feature_str = ",".join(latent_feature_names)
+        latent_feature_hash = hashlib.sha256(latent_feature_str.encode()).hexdigest()
+        # Save encoder artifacts
+        encoder_path, config_path, train_summary_path = autoencoder.save(AUTOENCODER_DIR, auto_model_name)
+        # Train model on latent features
+        clf_latent, metrics_latent = _train_and_eval(
+            model, X_train_latent_df, y_train_base, X_test_latent_df, y_test, name, use_sample_weight=use_sw)
+        print(f"Autoencoder LATENT - Acurácia: {metrics_latent['accuracy']:.4f} | F1: {metrics_latent['f1']:.4f} | RPS: {metrics_latent['rps']:.4f}")
+        # Metadata
+        compression_ratio = latent_dim / X_train_baseline_scaled.shape[1]
+        experiment_id = f"{name}_autoencoder_latent_{latent_dim}_{hashlib.sha256(str(latent_dim).encode()+latent_feature_str.encode()).hexdigest()[:8]}"
+        results[name]["autoencoder_latent"] = {
+            "model": clf_latent,
+            "accuracy": metrics_latent["accuracy"],
+            "f1": metrics_latent["f1"],
+            "rps": metrics_latent["rps"],
+            "feature_columns": latent_feature_names,
+            "feature_hash": latent_feature_hash,
+            "input_dim": X_train_baseline_scaled.shape[1],
+            "latent_dim": latent_dim,
+            "compression_ratio": compression_ratio,
+            "encoder_path": encoder_path,
+            "encoder_config_path": config_path,
+            "encoder_summary_path": train_summary_path,
+            "scaler_path": scaler_baseline_path,
+            "pipeline_type": "autoencoder_latent",
+            "experiment_id": experiment_id,
+            "input_feature_columns": list(X_train_baseline_scaled.columns),
+            "input_feature_hash": baseline_feature_hash,
+            "version_info": get_package_versions(),
         }
 
         # Augmented training: decide dataset
