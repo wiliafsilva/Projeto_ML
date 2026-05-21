@@ -94,10 +94,10 @@ def calculate_form_feature(df, gamma=0.33):
 
 def calculate_mu_features(df, k=6):
     """
-    Calcula μₖ features: médias móveis dos últimos k jogos (padrão k=6).
+    Calcula mu_k features: médias móveis dos últimos k jogos (padrão k=6).
     
     Implementa features do artigo Baboota & Kaur (2018):
-    - Corners (HC, AC) → corners_diff = μₖ_home_corners - μₖ_away_corners
+    - Corners (HC, AC) → corners_diff = mu_k_home_corners - mu_k_away_corners
     - Shots on Target (HST, AST) → shotsontarget_diff
     - Total Shots (HS, AS) → shots_diff  
     - Goals (FTHG, FTAG) → goals_avg_diff
@@ -112,7 +112,7 @@ def calculate_mu_features(df, k=6):
     Returns:
         DataFrame com colunas: corners_diff, shotsontarget_diff, shots_diff, goals_avg_diff
     """
-    print(f"\n[μₖ Features] Iniciando cálculo com k={k} jogos...")
+    print(f"\n[mu_k Features] Iniciando cálculo com k={k} jogos...")
     
     teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()
     
@@ -134,7 +134,7 @@ def calculate_mu_features(df, k=6):
         if current_season is None:
             current_season = row['Season']
         elif row['Season'] != current_season:
-            print(f"[μₖ] Reset sazonal: {current_season} → {row['Season']}")
+            print(f"[mu_k] Reset sazonal: {current_season} → {row['Season']}")
             team_history = {
                 team: {
                     'corners': [],
@@ -148,7 +148,7 @@ def calculate_mu_features(df, k=6):
         home = row['HomeTeam']
         away = row['AwayTeam']
         
-        # Calcular μₖ (média dos últimos k jogos) - ANTES do jogo atual
+        # Calcular mu_k (média dos últimos k jogos) - ANTES do jogo atual
         def calculate_mu(history_list, k_games):
             """Média dos últimos k jogos, ou média de todos se < k jogos"""
             if not history_list:
@@ -156,13 +156,13 @@ def calculate_mu_features(df, k=6):
             recent = history_list[-k_games:]
             return np.mean(recent)
         
-        # μₖ para Home team
+        # mu_k para Home team
         mu_home_corners = calculate_mu(team_history[home]['corners'], k)
         mu_home_sot = calculate_mu(team_history[home]['shots_on_target'], k)
         mu_home_shots = calculate_mu(team_history[home]['total_shots'], k)
         mu_home_goals = calculate_mu(team_history[home]['goals'], k)
         
-        # μₖ para Away team
+        # mu_k para Away team
         mu_away_corners = calculate_mu(team_history[away]['corners'], k)
         mu_away_sot = calculate_mu(team_history[away]['shots_on_target'], k)
         mu_away_shots = calculate_mu(team_history[away]['total_shots'], k)
@@ -193,10 +193,10 @@ def calculate_mu_features(df, k=6):
     
     df_mu = pd.DataFrame(features)
     
-    print(f"[μₖ] ✓ 4 features calculadas: {df_mu.columns.tolist()}")
-    print(f"[μₖ] Shape: {df_mu.shape}")
-    print(f"[μₖ] Exemplo corners_diff (primeiras 5): {df_mu['corners_diff'].head().tolist()}")
-    print(f"[μₖ] Estatísticas goals_avg_diff:")
+    print(f"[mu_k] ✓ 4 features calculadas: {df_mu.columns.tolist()}")
+    print(f"[mu_k] Shape: {df_mu.shape}")
+    print(f"[mu_k] Exemplo corners_diff (primeiras 5): {df_mu['corners_diff'].head().tolist()}")
+    print(f"[mu_k] Estatísticas goals_avg_diff:")
     print(f"      Min: {df_mu['goals_avg_diff'].min():.3f}")
     
     return df_mu
@@ -559,8 +559,8 @@ def calculate_team_stats(df):
         df_form[['form_diff', 'home_form', 'away_form']]
     ], axis=1)
     
-    # ======== ADICIONAR μₖ FEATURES ========
-    print("[Pipeline] Calculando μₖ features (k=6)...")
+    # ======== ADICIONAR mu_k FEATURES ========
+    print("[Pipeline] Calculando mu_k features (k=6)...")
     df_mu = calculate_mu_features(df, k=6)
     
     # Adicionar: corners_diff, shotsontarget_diff, shots_diff, goals_avg_diff

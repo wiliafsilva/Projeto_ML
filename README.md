@@ -104,6 +104,89 @@ streamlit run app.py
 ```
 
 Abra http://localhost:8501 no navegador.
+
+---
+
+## 🧠 Usando Autoencoder para Pré-processamento
+
+A partir de maio de 2026, o projeto inclui um **Autoencoder em TensorFlow/Keras** para redução de dimensionalidade não-linear. Ele transforma 41 features originais em 16 features latentes compactadas, podendo melhorar regularização e velocidade de treino dos modelos.
+
+### Treinar o Autoencoder (passo único)
+
+```powershell
+# Ativar venv
+.\.venv\Scripts\Activate.ps1
+
+# Opção 1: Apenas treinar encoder (simples)
+python scripts/train_autoencoder.py --latent-dim 16 --epochs 100
+
+# Opção 2: Pipeline completa (treina + gera features latentes)
+python scripts/run_autoencoder_pipeline.py `
+  --train-dir data/data_2005_2014 `
+  --test-dir data/data_2014_2016 `
+  --encoder-dir models/autoencoder `
+  --latent-dim 16 `
+  --epochs 100
+```
+
+### Arquivos Gerados
+
+```
+models/autoencoder/
+├── encoder.keras           # Modelo encoder treinado
+├── scaler.pkl              # Normalização (StandardScaler)
+├── metadata.json           # Configuração & métricas
+└── training_history.pkl    # Histórico de treino (loss/val_loss)
+
+models/autoencoder/latent_features/  # (se usar run_autoencoder_pipeline.py)
+├── X_train_latent.pkl / .csv
+├── X_test_latent.pkl / .csv
+├── y_train.pkl
+└── y_test.pkl
+```
+
+### Usar Features Latentes nos Modelos
+
+Após treinar o autoencoder, as features latentes estão prontas. Para integrar com `src/train_models.py`:
+
+```python
+import pickle
+from src.autoencoder import load_encoder_and_scaler, encode
+
+# Carregar encoder treinado
+encoder, scaler, metadata = load_encoder_and_scaler('models/autoencoder')
+
+# Usar com seus dados
+X_latent = encode(X, encoder, scaler)  # X reduzido de 41 → 16 features
+
+# Treinar modelo com X_latent
+model.fit(X_latent, y_train)
+```
+
+### Validação & Métricas
+
+O autoencoder monitora:
+- **MSE de Reconstrução** (treino vs validação)
+- **EarlyStopping** (patience=10)
+- **Redução de dimensionalidade**: 41 → 16 features (61% redução)
+
+Após treino, compare desempenho:
+```powershell
+# Baseline original
+python main.py
+
+# Com features latentes (use X_latent no lugar de X)
+# Espera-se melhoria ou manutenção do desempenho com regularização extra
+```
+
+### Referências & Documentação Completa
+
+- Plano detalhado: [plano.md](plano.md)
+- Implementação: [src/autoencoder.py](src/autoencoder.py)
+- Scripts: [scripts/train_autoencoder.py](scripts/train_autoencoder.py), [scripts/run_autoencoder_pipeline.py](scripts/run_autoencoder_pipeline.py)
+
+---
+
 ## Execução Completa — Gerar Tudo (comando único)
 
 Se quiser gerar todos os artefatos (verificação, treinamento, tabelas, figuras e métricas) em sequência, use o script central `scripts/generate_all.py`. Ele executa os passos na ordem correta e salva os resultados em `models/`.
@@ -404,3 +487,32 @@ Teste:   2014-2016 (2 temporadas) → 760 partidas
 - ✅ Pasta `data/` (todos os CSVs)
 - ✅ Pasta `scripts/` (19 scripts essenciais)
 - ✅ Pasta `models/` (resultados gerados)
+
+
+## Usar GAN - Redes Adiversariais Generativas 
+## Autoencoder 
+## Transformer (modelo de linguagem)
+
+
+python scripts/run_autoencoder_pipeline.py
+
+# Se deu bom resultado:
+
+# 1. Usar features latentes no pipeline principal
+python src/train_models.py --use-autoencoder
+
+# 2. Recompensar modelos com latentes
+python main.py  # (modificado para usar X_latent)
+
+# 3. Gerar relatório final
+python scripts/generate_all.py
+
+O autoencoder funciona MELHOR para modelos que SOFREM com muitas dimensões:
+
+NaiveBayes ✅ (sofre bastante)
+LogisticRegression ✅ (sofre)
+SVM ✅ (sensível a dimensões)
+Não funciona bem para modelos que EXPLORAM múltiplas dimensões naturalmente:
+
+Tree-based (RF, XGB, GB) ❌
+Neural Networks com muitas camadas ❌

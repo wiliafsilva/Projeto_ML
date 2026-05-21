@@ -495,3 +495,17 @@ A acurácia de ~50% para problemas de três classes (~33% baseline teórico) rep
 
 **Documento gerado segundo padrões de publicações científicas em International Journal of Forecasting, IEEE Transactions on Knowledge and Data Engineering, e conferências como AAAI/IJCAI.**
 
+O autoencoder funciona MELHOR para modelos que SOFREM com muitas dimensões:
+
+NaiveBayes - (sofre bastante)
+LogisticRegression - (sofre)
+SVM - (sensível a dimensões)
+Não funciona bem para modelos que EXPLORAM múltiplas dimensões naturalmente:
+
+Tree-based (RF, XGB, GB) 
+Neural Networks com muitas camadas 
+
+
+python test_autoencoder_hyperparams.py
+python scripts/run_autoencoder_pipeline.py --latent-dim 12 --batch-size 64 --epochs 150
+python compare_autoencoder.py
