@@ -16,8 +16,11 @@ from sklearn.utils.class_weight import compute_sample_weight
 from xgboost import XGBClassifier
 
 # Autoencoder & Scaler
-from models.autoencoder import KerasAutoencoder, get_package_versions
-from models.gan_model import GANClassifier
+from src.models.autoencoder import KerasAutoencoder, get_package_versions
+from src.models.gan_model import GANClassifier
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+AUTOENCODER_DIR = os.path.join(ROOT, "models", "autoencoders")
 
 
 def rps(y_true, y_prob):

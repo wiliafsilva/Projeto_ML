@@ -13,10 +13,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
 
-from feature_engineering import calculate_team_stats
-from models.autoencoder import KerasAutoencoder, get_package_versions
-from preprocessing import load_multiple_seasons
-from train_models import prepare_features_by_model, rps
+from src.feature_engineering import calculate_team_stats
+from src.models.autoencoder import KerasAutoencoder, get_package_versions
+from src.preprocessing import load_multiple_seasons
+from src.train_models import prepare_features_by_model, rps
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 AUTOENCODER_DIR = os.path.join(ROOT, "models", "autoencoders")

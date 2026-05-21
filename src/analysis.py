@@ -5,8 +5,8 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import average_precision_score, classification_report, confusion_matrix, roc_auc_score
 from sklearn.preprocessing import label_binarize
 
-from feature_engineering import calculate_team_stats
-from preprocessing import load_multiple_seasons
+from src.feature_engineering import calculate_team_stats
+from src.preprocessing import load_multiple_seasons
 
 
 def prepare_evaluation_data(feature_columns=None):
