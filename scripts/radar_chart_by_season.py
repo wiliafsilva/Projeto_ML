@@ -1,14 +1,14 @@
 """
 Radar Chart por Temporada
-Gera um radar chart para cada temporada: 2014-2015, 2015-2016 e All
+Gera um radar chart para cada temporada: 2023-2024, 2024-2025 e All
 
 Entrada:
  - models/baseline_comparison.csv (Accuracy, F1, Precision, Recall por temporada)
  - models/trained_models.pkl (RPS por temporada em ['seasonal_results'])
 
 Saída:
- - models/figures/radar_chart_2014-2015.png
- - models/figures/radar_chart_2015-2016.png
+ - models/figures/radar_chart_2023-2024.png
+ - models/figures/radar_chart_2024-2025.png
  - models/figures/radar_chart_All.png
 """
 
@@ -112,7 +112,7 @@ def main():
     df = pd.read_csv('models/baseline_comparison.csv')
     trained = joblib.load('models/trained_models.pkl')
 
-    seasons = ['2014-2015', '2015-2016', 'All']
+    seasons = ['2023-2024', '2024-2025', 'All']
     for s in seasons:
         out = f'models/figures/radar_chart_{s}.png'
         generate_radar_for_season(s, df, trained, out)

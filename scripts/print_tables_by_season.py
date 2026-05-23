@@ -1,8 +1,11 @@
 import os
-import pickle
+import sys
+import joblib
 import pandas as pd
 
 base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if base not in sys.path:
+    sys.path.insert(0, base)
 csv_path = os.path.join(base, 'models', 'baseline_comparison.csv')
 pkl_path = os.path.join(base, 'models', 'trained_models.pkl')
 
@@ -20,8 +23,7 @@ if os.path.exists(csv_path):
 trained = None
 if os.path.exists(pkl_path):
     try:
-        with open(pkl_path, 'rb') as f:
-            trained = pickle.load(f)
+        trained = joblib.load(pkl_path)
     except Exception as e:
         print('Erro ao carregar trained_models.pkl:', e)
 
@@ -46,7 +48,7 @@ for key in ['results', 'global_results', 'all_results', 'overall_results', 'metr
         print('Encontrado global key:', key)
         break
 
-seasons = ['2014-2015', '2015-2016']
+seasons = ['2023-2024', '2024-2025']
 for s in seasons:
     print('\n== TEMPORADA:', s)
     if seasonal and s in seasonal:

@@ -3,16 +3,16 @@ Radar Chart - Multi-Metric Model Comparison
 ===========================================
 
 Agora o script gera radar charts separados por temporada quando executado:
-- 2014-2015
-- 2015-2016
+- 2023-2024
+- 2024-2025
 - All
 
 Ele usa `models/baseline_comparison.csv` para Accuracy, Precision, Recall e F1,
 e `models/trained_models.pkl` para obter o RPS por temporada (em `seasonal_results`).
 
 Saída:
- - models/figures/radar_chart_2014-2015.png
- - models/figures/radar_chart_2015-2016.png
+ - models/figures/radar_chart_2023-2024.png
+ - models/figures/radar_chart_2024-2025.png
  - models/figures/radar_chart_All.png
 """
 
@@ -121,15 +121,15 @@ def generate_radar_for_season(season, df_base, trained_meta, output_path):
 
 
 def main():
-    print('📂 Carregando dados...')
+    print('Carregando dados...')
     df = pd.read_csv('models/baseline_comparison.csv')
     trained = joblib.load('models/trained_models.pkl')
 
-    seasons = ['2014-2015', '2015-2016', 'All']
+    seasons = ['2023-2024', '2024-2025', 'All']
     for s in seasons:
         out = f'models/figures/radar_chart_{s}.png'
         generate_radar_for_season(s, df, trained, out)
-        print(f"📊 Salvo em: {out}")
+        print(f"Salvo em: {out}")
 
 
 if __name__ == '__main__':

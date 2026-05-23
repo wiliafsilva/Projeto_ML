@@ -106,9 +106,9 @@ def prepare_features_by_model(df, model_name):
 def train_models(df_train, df_test):
     """
     Treina e avalia modelos usando dados de treino e teste separados.
-    Segue a metodologia do artigo:
-    - Treino: 2005-2014 (9 temporadas)
-    - Teste: 2014-2016 (2 temporadas)
+    Segue a metodologia do artigo adaptada ao novo split:
+    - Treino: 2011-2023 (temporadas para treino)
+    - Teste: 2023-2025 (temporadas para teste)
     - Class A features para Naive Bayes (valores individuais)
     - Class B features para outros modelos (diferenciais)
     
@@ -135,6 +135,19 @@ def train_models(df_train, df_test):
     # Pegar labels (comuns para todos os modelos)
     y_train_full = df_train['Result']
     y_test_full = df_test['Result']
+
+    # Remover amostras com label ausente (NaN) — evita KeyError ao mapear pesos
+    if y_train_full.isna().any():
+        n_missing = y_train_full.isna().sum()
+        print(f"\n[AVISO] {n_missing} amostras de TREINO sem label 'Result' encontradas — removendo antes do treino")
+        df_train = df_train.loc[y_train_full.notna()].reset_index(drop=True)
+        y_train_full = df_train['Result']
+
+    if y_test_full.isna().any():
+        n_missing = y_test_full.isna().sum()
+        print(f"\n[AVISO] {n_missing} amostras de TESTE sem label 'Result' encontradas — removendo antes da avaliação")
+        df_test = df_test.loc[y_test_full.notna()].reset_index(drop=True)
+        y_test_full = df_test['Result']
     
     print(f"\nDistribuição de classes no treino:")
     print(f"  Vitória Casa (H): {(y_train_full == 0).sum()} ({(y_train_full == 0).sum()/len(y_train_full)*100:.1f}%)")
@@ -146,7 +159,14 @@ def train_models(df_train, df_test):
     print(f"  Vitória Fora (A): {(y_test_full == 2).sum()} ({(y_test_full == 2).sum()/len(y_test_full)*100:.1f}%)")
 
     # Calcular sample weights para XGBoost e NaiveBayes
-    sample_weights = compute_sample_weight('balanced', y_train_full)
+    # Algumas versões/inputs podem causar ValueError em compute_sample_weight
+    # (por exemplo se houver labels inesperados). Para garantir robustez,
+    # calculamos manualmente pesos balanceados por classe usando a fórmula:
+    # weight(cls) = n_samples / (n_classes * n_samples_cls)
+    counts = y_train_full.value_counts()
+    n = len(y_train_full)
+    n_classes = len(counts)
+    sample_weights = y_train_full.map(lambda cls: n / (n_classes * counts[cls])).values
 
     # Modelos com hiperparâmetros otimizados (DIA 5 + DIA 10 validação)
     # DIA 10: Validado com 43 features (Form + μₖ) → XGBoost RPS 0.4115 (melhor do projeto!)
@@ -200,6 +220,11 @@ def train_models(df_train, df_test):
         
         print(f"Features para treino: {X_train.shape[1]}")
         print(f"Amostras treino: {X_train.shape[0]}, Amostras teste: {X_test.shape[0]}")
+
+        # Imputar valores faltantes por mediana (usar estatísticas do treino)
+        impute_vals = X_train.median()
+        X_train = X_train.fillna(impute_vals)
+        X_test = X_test.fillna(impute_vals)
         
         # Treinar com sample_weight para XGBoost e NaiveBayes
         if name in ["XGBoost", "NaiveBayes"]:
@@ -252,7 +277,8 @@ def train_models(df_train, df_test):
             "accuracy": acc,
             "f1": f1,
             "rps": score_rps,
-            "feature_columns": list(X_train.columns)  # Salvar colunas usadas
+            "feature_columns": list(X_train.columns),  # Salvar colunas usadas
+            "impute_vals": impute_vals  # mediana do treino usada para imputação
         }
     
     # ======== ENSEMBLE METHODS (DIA 7) ========
@@ -306,6 +332,11 @@ def train_models(df_train, df_test):
     )
     
     print("\nTreinando Voting Classifier (pesos iguais)...")
+    # Imputar valores faltantes para ensemble (mediana do treino de ensemble)
+    impute_vals_ens = X_train_ens.median()
+    X_train_ens = X_train_ens.fillna(impute_vals_ens)
+    X_test_ens = X_test_ens.fillna(impute_vals_ens)
+
     voting_equal.fit(X_train_ens, y_train_ens)
     
     preds_vote_eq = voting_equal.predict(X_test_ens)
@@ -413,12 +444,17 @@ def train_models(df_train, df_test):
     print("RESUMO FINAL - RESULTADOS POR TEMPORADA")
     print(f"{'='*80}")
     
-    # Temporadas de teste (df_test já é o DataFrame de features)
-    seasons_info = [
-        ('2014-2015', 2015),
-        ('2015-2016', 2016),
-        ('All', None)  # None = todas as temporadas
-    ]
+    # Temporadas de teste (construir dinamicamente a partir de df_test)
+    # df_test['Season'] contém o ano final da temporada (ex: 2024 para 2023-2024)
+    unique_test_years = []
+    if 'Season' in df_test.columns:
+        unique_test_years = sorted(pd.Series(df_test['Season'].dropna().unique()).astype(int).tolist())
+
+    seasons_info = []
+    for y in unique_test_years:
+        seasons_info.append((f"{y-1}-{y}", int(y)))
+    # adicionar a opção 'All' para incluir todas as temporadas de teste
+    seasons_info.append(('All', None))
     
     # Estrutura para armazenar resultados por temporada
     seasonal_results = {}
@@ -450,10 +486,34 @@ def train_models(df_train, df_test):
                 df_season_model = prepare_features_by_model(df_test_season, 'RandomForest')
             else:
                 df_season_model = prepare_features_by_model(df_test_season, name)
-            
             X_season = df_season_model.drop(['Result', 'Season'], axis=1)
             y_season = df_season_model['Result']
-            
+
+            # Se não houver amostras para esta temporada, pular predição
+            if X_season.shape[0] == 0:
+                print(f"{name:<20} {'-':>10} {'-':>10} {'-':>10} (0 amostras)")
+                seasonal_results[season_name][name] = {
+                    'accuracy': None,
+                    'precision': None,
+                    'recall': None,
+                    'f1': None,
+                    'rps': None,
+                    'n_samples': 0
+                }
+                continue
+
+            # Imputar NaNs nas features de temporada usando mediana do treino do modelo (salva em info)
+            # Caso não exista valor de imputação ou ainda reste NaN, preencher com 0 como fallback
+            if isinstance(info.get('impute_vals'), (pd.Series, dict)):
+                model_impute = pd.Series(info.get('impute_vals'))
+            else:
+                model_impute = X_season.median()
+            # Reindex para cobrir apenas as colunas presentes em X_season
+            model_impute = model_impute.reindex(X_season.columns)
+            X_season = X_season.fillna(model_impute)
+            # Fallback final: preencher quaisquer NaNs restantes com 0
+            X_season = X_season.fillna(0)
+
             # Fazer predições
             model = info['model']
             preds_season = model.predict(X_season)
@@ -488,11 +548,11 @@ def train_models(df_train, df_test):
         'seasonal_results': seasonal_results,  # NOVO: Resultados por temporada
         'train_size': len(df_train),
         'test_size': len(df_test),
-        'train_period': '2005-2014',
-        'test_period': '2014-2016',
+        'train_period': '2011-2023',
+        'test_period': '2023-2025',
         'test_seasons': {
-            '2014-2015': len(df_test[df_test['Season'] == 2015]),
-            '2015-2016': len(df_test[df_test['Season'] == 2016]),
+            '2023-2024': len(df_test[df_test['Season'] == 2024]),
+            '2024-2025': len(df_test[df_test['Season'] == 2025]),
             'All': len(df_test)
         },
         'methodology': 'Replicação do artigo científico - Resultados separados por temporada'
@@ -500,4 +560,4 @@ def train_models(df_train, df_test):
     
     joblib.dump(results_metadata, "models/trained_models.pkl")
     print(f"\n✓ Modelos salvos em models/trained_models.pkl")
-    print(f"✓ Resultados salvos para: 2014-2015, 2015-2016, All")
+    print(f"✓ Resultados salvos para: 2023-2024, 2024-2025, All")

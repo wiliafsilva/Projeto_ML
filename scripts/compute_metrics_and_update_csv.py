@@ -19,8 +19,9 @@ from src.feature_engineering import calculate_team_stats
 import joblib
 
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-train_dir = os.path.join(BASE, 'data', 'data_2005_2014')
-test_dir = os.path.join(BASE, 'data', 'data_2014_2016')
+# Novo split de dados
+train_dir = os.path.join(BASE, 'data', 'data_2011_2023')
+test_dir = os.path.join(BASE, 'data', 'data_2023_2025')
 
 print('Carregando dados...')
 df_train_raw = load_multiple_seasons(train_dir)
@@ -51,10 +52,14 @@ def rps(y_true, y_prob):
 # train and compute probabilities
 results = {}
 
-# compute sample weights
+# compute sample weights (robusto a NaNs)
 # sample weights and training labels
-sample_weights = compute_sample_weight('balanced', features_train['Result'])
-y_train = features_train['Result']
+y_train = features_train['Result'].dropna().astype(int)
+try:
+    sample_weights = compute_sample_weight('balanced', y_train)
+except Exception:
+    # fallback: uniform weights if compute_sample_weight falhar
+    sample_weights = np.ones(len(y_train))
 
 # Nota: ensemble training/prediction (Voting/Stacking) não é realizado aqui.
 # Se houver objetos de ensemble no arquivo models/trained_models.pkl, eles serão usados
@@ -72,7 +77,7 @@ df_baseline = pd.read_csv(csv_path)
 # The index has structure with season as first level in previous print; likely 'Temporada' index — but CSV index is first column.
 
 # Build a map of (season, model) -> metrics
-season_names = ['2014-2015', '2015-2016', 'All']
+season_names = ['2023-2024', '2024-2025', 'All']
 # Map season label in df to model names used in results keys
 model_name_map = {
     'RandomForest': 'RandomForest',
@@ -104,10 +109,10 @@ for season in season_names:
             # usar labels do conjunto de teste para a temporada alvo
             if season == 'All':
                 y_sel = features_test['Result']
-            elif season == '2014-2015':
-                y_sel = features_test[features_test['Season'] == 2015]['Result']
+            elif season == '2023-2024':
+                y_sel = features_test[features_test['Season'] == 2024]['Result']
             else:
-                y_sel = features_test[features_test['Season'] == 2016]['Result']
+                y_sel = features_test[features_test['Season'] == 2025]['Result']
 
             from collections import Counter
             train_counts = Counter(y_train)
@@ -145,10 +150,10 @@ for season in season_names:
 
             if season == 'All':
                 df_sel = df_season_model
-            elif season == '2014-2015':
-                df_sel = df_season_model[df_season_model['Season'] == 2015]
+            elif season == '2023-2024':
+                df_sel = df_season_model[df_season_model['Season'] == 2024]
             else:
-                df_sel = df_season_model[df_season_model['Season'] == 2016]
+                df_sel = df_season_model[df_season_model['Season'] == 2025]
 
             X_sel = df_sel.drop(['Result', 'Season'], axis=1)
             y_sel = df_sel['Result']

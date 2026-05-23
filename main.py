@@ -6,21 +6,21 @@ import os
 
 def main():
     """
-    Pipeline principal seguindo a metodologia do artigo científico:
-    - Dados de treinamento: 2005-2014 (9 temporadas)
-    - Dados de teste: 2014-2016 (2 temporadas)
+    Pipeline principal seguindo o split definido no workspace:
+    - Dados de treinamento: 2011-2023 (temporadas para treino)
+    - Dados de teste: 2023-2025 (temporadas para teste)
     """
     print("="*80)
     print("REPLICA CIENTÍFICA - PREDIÇÃO DE RESULTADOS DA PREMIER LEAGUE")
     print("="*80)
     print("\nMetodologia do Artigo:")
-    print("  - Dados de Treinamento: 2005-2014 (9 temporadas)")
-    print("  - Dados de Teste: 2014-2016 (2 temporadas)")
+    print("  - Dados de Treinamento: 2011-2023 (treino)")
+    print("  - Dados de Teste: 2023-2025 (teste)")
     print("="*80)
     
-    # Caminhos das pastas conforme estrutura do artigo
-    train_dir = "data/data_2005_2014"
-    test_dir = "data/data_2014_2016"
+    # Caminhos das pastas conforme novo split de dados
+    train_dir = "data/data_2011_2023"
+    test_dir = "data/data_2023_2025"
     
     # Verificar se os diretórios existem
     if not os.path.exists(train_dir):
@@ -28,13 +28,13 @@ def main():
     if not os.path.exists(test_dir):
         raise ValueError(f"Diretório de teste não encontrado: {test_dir}")
     
-    # Carregar dados de treinamento (2005-2014)
+    # Carregar dados de treinamento (2011-2023)
     print("\n" + "="*80)
     print("ETAPA 1: CARREGAMENTO DOS DADOS")
     print("="*80)
     df_train = load_multiple_seasons(train_dir)
     
-    # Carregar dados de teste (2014-2016)
+    # Carregar dados de teste (2023-2025)
     df_test = load_multiple_seasons(test_dir)
     
     # Calcular features para dados de treinamento

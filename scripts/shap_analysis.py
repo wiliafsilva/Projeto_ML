@@ -40,9 +40,9 @@ print("="*80)
 print("Objetivo: Entender POR QUE RandomForest tem o melhor RPS (0.4145)")
 print("="*80)
 
-# Carregar dados da mesma forma que main.py
-train_dir = "data/data_2005_2014"
-test_dir = "data/data_2014_2016"
+# Carregar dados da mesma forma que main.py (ajustado para novo split)
+train_dir = "data/data_2011_2023"
+test_dir = "data/data_2023_2025"
 
 print("\n[1] CARREGANDO DADOS...")
 df_train = load_multiple_seasons(train_dir)
@@ -210,36 +210,78 @@ if SHAP_AVAILABLE:
         explainer = shap.TreeExplainer(base_rf)
         shap_values = explainer.shap_values(X_sample)
         
-        # Para multiclass, pegar a classe 0 (Home Win)
+        print(f"Debug: type(shap_values)={type(shap_values)}, isinstance(list)={isinstance(shap_values, list)}")
         if isinstance(shap_values, list):
+            print(f"Debug: len(shap_values list)={len(shap_values)}, types={[type(s) for s in shap_values]}")
+            # Para multiclass, pegar a classe 0 (Home Win)
             shap_home = shap_values[0]  # Classe 0: Home Win
             shap_draw = shap_values[1]  # Classe 1: Draw
             shap_away = shap_values[2]  # Classe 2: Away Win
+            
+            print(f"Debug: shap_home shape={shap_home.shape}")
             
             # Calcular importância média absoluta por classe
             mean_shap_home = np.abs(shap_home).mean(axis=0)
             mean_shap_draw = np.abs(shap_draw).mean(axis=0)
             mean_shap_away = np.abs(shap_away).mean(axis=0)
+            
+            print(f"Debug: mean_shap_home shape={mean_shap_home.shape}, ndim={mean_shap_home.ndim}")
+            
+            # Average across the 3 classes
             mean_shap_overall = (mean_shap_home + mean_shap_draw + mean_shap_away) / 3
+            print(f"Debug: mean_shap_overall shape={mean_shap_overall.shape}, ndim={mean_shap_overall.ndim}")
         else:
-            mean_shap_overall = np.abs(shap_values).mean(axis=0)
+            # shap_values is (samples, features, classes) for multiclass
+            print(f"Debug: shap_values shape={shap_values.shape if hasattr(shap_values, 'shape') else 'no shape'}")
+            
+            # Mean over samples and classes
+            if shap_values.ndim == 3:
+                # (samples, features, classes) -> average over samples, then average over classes
+                mean_shap_overall = np.abs(shap_values).mean(axis=(0, 2))  # Average over samples and classes
+                print(f"Debug: mean_shap_overall from ndim==3: shape={mean_shap_overall.shape}")
+            else:
+                mean_shap_overall = np.abs(shap_values).mean(axis=0)
+                print(f"Debug: mean_shap_overall from other: shape={mean_shap_overall.shape}")
+            
+            # Ensure it's 1D
+            if mean_shap_overall.ndim > 1:
+                print(f"Debug: Flattening mean_shap_overall")
+                mean_shap_overall = mean_shap_overall.flatten()
+                
+            print(f"Debug: mean_shap_overall after check: shape={mean_shap_overall.shape}, ndim={mean_shap_overall.ndim}")
+        
+        print(f"Debug BEFORE argsort: shape={mean_shap_overall.shape}, ndim={mean_shap_overall.ndim}, len={len(mean_shap_overall)}")
         
         indices = np.argsort(mean_shap_overall)[::-1]
+        # Convert to Python list
+        indices_py = indices.tolist()
         
         print("\n✓ SHAP values calculados!")
-        print("\nTop 15 Features por Impacto SHAP (média absoluta):")
+        print(f"\nTop 15 Features por Impacto SHAP (média absoluta):")
         print("-"*80)
         print(f"{'Rank':<6} {'Feature':<30} {'SHAP Impact':<15}")
         print("-"*80)
         
-        for i, idx in enumerate(indices[:15], 1):
-            display_name = map_feature_name(feature_names[idx])
-            print(f"{i:<6} {display_name:<30} {mean_shap_overall[idx]:<15.4f}")
+        for i, idx in enumerate(indices_py[:15], 1):
+            try:
+                # idx is a Python int from tolist()
+                idx_int = int(idx)
+                # Add bounds check
+                if idx_int < len(feature_names) and idx_int < len(mean_shap_overall):
+                    display_name = map_feature_name(feature_names[idx_int])
+                    impact_val = float(mean_shap_overall[idx_int])
+                    print(f"{i:<6} {display_name:<30} {impact_val:<15.4f}")
+                else:
+                    print(f"{i:<6} [INDEX OUT OF BOUNDS: {idx_int}] {' ':<15}")
+            except Exception as loop_err:
+                print(f"{i:<6} [ERROR: {loop_err}]")
         
         # Salvar análise SHAP
+        # Converter indices para lista de ints Python (não numpy arrays)
+        indices_list = [int(i) for i in indices_py]
         shap_df = pd.DataFrame({
-            'Feature': [feature_names[i] for i in indices],
-            'SHAP_Impact': mean_shap_overall[indices]
+            'Feature': [feature_names[i] for i in indices_list],
+            'SHAP_Impact': [float(mean_shap_overall[i]) for i in indices_list]
         })
         shap_df.to_csv('models/shap_importance_randomforest.csv', index=False)
         print("\n✓ Análise SHAP salva em: models/shap_importance_randomforest.csv")
@@ -276,11 +318,25 @@ if SHAP_AVAILABLE:
         
         # 3. Waterfall plot para uma predição específica
         sample_idx = 0  # Primeira amostra
+        class_idx = 0  # Classe 0: Home Win
         plt.figure(figsize=(10, 6))
+        
+        # Extract correct SHAP values depending on format
+        if isinstance(shap_values, list):
+            shap_sample = shap_values[class_idx][sample_idx]
+            base_value = explainer.expected_value[class_idx]
+        else:
+            # shap_values shape: (samples, features, classes)
+            shap_sample = shap_values[sample_idx, :, class_idx]
+            if isinstance(explainer.expected_value, np.ndarray):
+                base_value = explainer.expected_value[class_idx]
+            else:
+                base_value = explainer.expected_value
+        
         shap.waterfall_plot(
-                shap.Explanation(
-                values=shap_values[0][sample_idx] if isinstance(shap_values, list) else shap_values[sample_idx],
-                base_values=explainer.expected_value[0] if isinstance(explainer.expected_value, np.ndarray) else explainer.expected_value,
+            shap.Explanation(
+                values=shap_sample,
+                base_values=base_value,
                 data=X_sample.iloc[sample_idx],
                 feature_names=mapped_feature_names
             ),
@@ -298,8 +354,6 @@ if SHAP_AVAILABLE:
         
     except Exception as e:
         print(f"\n✗ Erro ao calcular SHAP: {e}")
-        import traceback
-        traceback.print_exc()
 
 else:
     print(f"\n[4] ANÁLISE SHAP - NÃO DISPONÍVEL")
@@ -322,3 +376,5 @@ if SHAP_AVAILABLE:
 else:
     print("  - models/figures/feature_importance_randomforest.png")
     print("\n💡 Instale SHAP para visualizações avançadas de explicabilidade")
+
+sys.exit(0)

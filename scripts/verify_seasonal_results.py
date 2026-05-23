@@ -3,7 +3,7 @@ Verificar Resultados Salvos Por Temporada
 ==========================================
 
 Verifica se o arquivo trained_models.pkl contém resultados
-separados por temporada (2014-2015, 2015-2016, All).
+separados por temporada (2023-2024, 2024-2025, All).
 
 Autor: Projeto_ML
 Data: Março 2026
@@ -57,7 +57,7 @@ if 'seasonal_results' in results_metadata:
     print("RESULTADOS POR TEMPORADA")
     print("="*80)
     
-    for season_name in ['2014-2015', '2015-2016', 'All']:
+    for season_name in ['2023-2024', '2024-2025', 'All']:
         if season_name in seasonal_results:
             print(f"\n{'='*60}")
             print(f"TEMPORADA: {season_name}")
@@ -93,7 +93,7 @@ if 'seasonal_results' in results_metadata:
     
     for model_name in model_names:
         row = {'Modelo': model_name}
-        for season_name in ['2014-2015', '2015-2016', 'All']:
+        for season_name in ['2023-2024', '2024-2025', 'All']:
             if season_name in seasonal_results and model_name in seasonal_results[season_name]:
                 acc = seasonal_results[season_name][model_name]['accuracy']
                 row[season_name] = f"{acc*100:.2f}%"
@@ -111,7 +111,7 @@ if 'seasonal_results' in results_metadata:
     comparison_rps = []
     for model_name in model_names:
         row = {'Modelo': model_name}
-        for season_name in ['2014-2015', '2015-2016', 'All']:
+        for season_name in ['2023-2024', '2024-2025', 'All']:
             if season_name in seasonal_results and model_name in seasonal_results[season_name]:
                 rps = seasonal_results[season_name][model_name]['rps']
                 row[season_name] = f"{rps:.4f}"

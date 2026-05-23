@@ -495,3 +495,4 @@ A acurácia de ~50% para problemas de três classes (~33% baseline teórico) rep
 
 **Documento gerado segundo padrões de publicações científicas em International Journal of Forecasting, IEEE Transactions on Knowledge and Data Engineering, e conferências como AAAI/IJCAI.**
 
+Variational autencoder 

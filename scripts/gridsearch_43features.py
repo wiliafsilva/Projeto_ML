@@ -69,8 +69,8 @@ def main():
     # ========================================================================
     print("\n[1/5] CARREGANDO DADOS...")
     df_all = load_all_data()
-    df_train = df_all[df_all['Season'] <= 2014].copy().reset_index(drop=True)
-    df_test = df_all[df_all['Season'] > 2014].copy().reset_index(drop=True)
+    df_train = df_all[df_all['Season'] <= 2023].copy().reset_index(drop=True)
+    df_test = df_all[df_all['Season'] > 2023].copy().reset_index(drop=True)
     
     print("\n[2/5] CALCULANDO FEATURES...")
     df_train = calculate_team_stats(df_train)
@@ -282,15 +282,15 @@ def main():
     # 6. AVALIAÇÃO POR TEMPORADA (ARTIGO CIENTÍFICO)
     # ========================================================================
     print("\n" + "="*80)
-    print("AVALIAÇÃO POR TEMPORADA (2014-2015, 2015-2016, ALL)")
+    print("AVALIAÇÃO POR TEMPORADA (2023-2024, 2024-2025, ALL)")
     print("="*80)
     print("\nMetodologia do artigo: Avaliar separadamente em cada temporada de teste")
     print("-"*80)
     
-    # Temporadas de teste
+    # Temporadas de teste (novo período)
     seasons_info = [
-        ('2014-2015', 2015),
-        ('2015-2016', 2016),
+        ('2023-2024', 2024),
+        ('2024-2025', 2025),
         ('All', None)
     ]
     
@@ -351,8 +351,8 @@ def main():
     model_order = ['RandomForest', 'XGBoost', 'NaiveBayes']
     df_pivot = df_pivot[[col for col in model_order if col in df_pivot.columns]]
     
-    # Ordenar linhas (2014-2015, 2015-2016, All)
-    season_order = ['2014-2015', '2015-2016', 'All']
+    # Ordenar linhas (2023-2024, 2024-2025, All)
+    season_order = ['2023-2024', '2024-2025', 'All']
     df_pivot = df_pivot.reindex(season_order)
     
     print("\n📊 RESULTADOS POR TEMPORADA:")

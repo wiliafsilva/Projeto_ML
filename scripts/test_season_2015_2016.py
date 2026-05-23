@@ -1,8 +1,8 @@
 """
-Teste Rápido - Temporada 2015-2016
+Teste Rápido - Temporada 2024-2025
 ===================================
 
-Treina modelos no período 2005-2014 e testa APENAS na temporada 2015-2016.
+Treina modelos no período 2011-2023 e testa APENAS na temporada 2024-2025.
 
 Autor: Projeto_ML
 Data: Março 2026
@@ -40,8 +40,8 @@ print("TESTE RÁPIDO - TEMPORADA 2015-2016")
 print("="*80)
 print()
 print("Metodologia:")
-print("  - Treino: 2005-2014 (9 temporadas, 3420 partidas)")
-print("  - Teste: 2015-2016 (1 temporada, 380 partidas)")
+print("  - Treino: 2011-2023 (temporadas de treino)")
+print("  - Teste: 2024-2025 (1 temporada)")
 print("="*80)
 print()
 
@@ -50,22 +50,22 @@ print("Carregando dados...")
 df_all = load_all_data()
 df_features = calculate_team_stats(df_all)
 
-# Split treino/teste
-df_train = df_all[df_all['Season'] <= 2014].copy().reset_index(drop=True)
-df_test_2015_2016 = df_all[df_all['Season'] == 2016].copy().reset_index(drop=True)
+# Split treino/teste (novo split)
+df_train = df_all[df_all['Season'] <= 2023].copy().reset_index(drop=True)
+df_test_2024_2025 = df_all[df_all['Season'] == 2025].copy().reset_index(drop=True)
 
-df_features_train = df_features[df_all['Season'] <= 2014].reset_index(drop=True)
-df_features_test = df_features[df_all['Season'] == 2016].reset_index(drop=True)
+df_features_train = df_features[df_all['Season'] <= 2023].reset_index(drop=True)
+df_features_test = df_features[df_all['Season'] == 2025].reset_index(drop=True)
 
 print(f"   Treino: {len(df_train)} partidas")
-print(f"   Teste (2015-2016): {len(df_test_2015_2016)} partidas")
+print(f"   Teste (2024-2025): {len(df_test_2024_2025)} partidas")
 print()
 
 # Distribuição de classes
 y_train_full = df_train['Result']
-y_test = df_test_2015_2016['Result']
+y_test = df_test_2024_2025['Result']
 
-print("Distribuição de classes (2015-2016):")
+print("Distribuição de classes (2024-2025):")
 print(f"  Vitória Casa (H): {(y_test == 0).sum()} ({(y_test == 0).sum()/len(y_test)*100:.1f}%)")
 print(f"  Empate (D): {(y_test == 1).sum()} ({(y_test == 1).sum()/len(y_test)*100:.1f}%)")
 print(f"  Vitória Fora (A): {(y_test == 2).sum()} ({(y_test == 2).sum()/len(y_test)*100:.1f}%)")
@@ -224,16 +224,16 @@ print()
 
 # Comparação com temporada anterior
 print("="*80)
-print("📊 COMPARAÇÃO COM TEMPORADA 2014-2015")
+print("📊 COMPARAÇÃO COM TEMPORADA 2023-2024")
 print("="*80)
 print()
-print("Resultados esperados da temporada 2014-2015 (para referência):")
+print("Resultados esperados da temporada 2023-2024 (para referência):")
 print("   RandomForest: 53.16%")
 print("   XGBoost: 51.84%")
 print("   NaiveBayes: 48.95%")
 print("   SVM: 49.74%")
 print()
-print("Resultados da temporada 2015-2016:")
+print("Resultados da temporada 2024-2025:")
 for _, row in results_df.iterrows():
     print(f"   {row['Modelo']}: {row['Accuracy']*100:.2f}%")
 print()

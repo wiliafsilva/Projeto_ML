@@ -53,9 +53,9 @@ from src.preprocessing import load_all_data
 df = load_all_data()
 features = calculate_team_stats(df)
 
-# Separar treino (2005-2014) e teste (2014-2016)
-train = features[features['Season'] <= 2014]
-test = features[features['Season'] > 2014]
+# Separar treino (2011-2023) e teste (2023-2025)
+train = features[features['Season'] <= 2023]
+test = features[features['Season'] > 2023]
 
 X_train = train.drop(['Result','Season'], axis=1)
 y_train = train['Result']
@@ -71,8 +71,8 @@ rps_scorer_fn = RPSScorer()
 # Cross-validation temporal (evita data leakage)
 tscv = TimeSeriesSplit(n_splits=5)
 
-print(f"\nDataset de treino: {len(X_train)} partidas (2005-2014)")
-print(f"Dataset de teste: {len(X_test)} partidas (2014-2016)")
+print(f"\nDataset de treino: {len(X_train)} partidas (2011-2023)")
+print(f"Dataset de teste: {len(X_test)} partidas (2023-2025)")
 print(f"Cross-validation: TimeSeriesSplit com 5 splits")
 print(f"Métrica de otimização: RPS (Ranked Probability Score)\n")
 
@@ -206,15 +206,15 @@ print(f"✓ Melhor RPS (CV): {-nb_grid.best_score_:.4f}")
 # 5. AVALIAÇÃO POR TEMPORADA (ARTIGO CIENTÍFICO)
 # ============================================================
 print("\n" + "="*60)
-print("AVALIAÇÃO POR TEMPORADA (2014-2015, 2015-2016, ALL)")
+print("AVALIAÇÃO POR TEMPORADA (2023-2024, 2024-2025, ALL)")
 print("="*60)
 print("\nMetodologia do artigo: Avaliar separadamente em cada temporada de teste")
 print("-"*60)
 
 # Temporadas de teste
 seasons_info = [
-    ('2014-2015', 2015),
-    ('2015-2016', 2016),
+    ('2023-2024', 2024),
+    ('2024-2025', 2025),
     ('All', None)
 ]
 
@@ -321,8 +321,8 @@ df_pivot = df_seasonal.pivot(index='Temporada', columns='Modelo', values='RPS')
 model_order = ['SVM', 'RandomForest', 'XGBoost', 'NaiveBayes']
 df_pivot = df_pivot[[col for col in model_order if col in df_pivot.columns]]
 
-# Ordenar linhas (2014-2015, 2015-2016, All)
-season_order = ['2014-2015', '2015-2016', 'All']
+# Ordenar linhas (2023-2024, 2024-2025, All)
+season_order = ['2023-2024', '2024-2025', 'All']
 df_pivot = df_pivot.reindex(season_order)
 
 print("\n📊 RESULTADOS POR TEMPORADA:")

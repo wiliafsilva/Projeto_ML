@@ -19,8 +19,8 @@ print("VERIFICAÇÃO COMPLETA DO PROJETO")
 print("="*60)
 
 # 1. Verificar dataset de treinamento
-print("\n[1] VERIFICANDO DATASET DE TREINAMENTO (2005-2014):")
-df_train = load_multiple_seasons('data/data_2005_2014')
+print("\n[1] VERIFICANDO DATASET DE TREINAMENTO (2011-2023):")
+df_train = load_multiple_seasons('data/data_2011_2023')
 print(f"✓ Total de partidas: {len(df_train):,}")
 print(f"✓ Temporadas: {df_train['Season'].nunique()} (de {df_train['Season'].min()} a {df_train['Season'].max()})")
 print(f"✓ Times únicos: {pd.concat([df_train['HomeTeam'], df_train['AwayTeam']]).nunique()}")
@@ -30,8 +30,8 @@ for key, count in df_train['Result'].value_counts().sort_index().items():
     print(f"  - {resultado_map[key]}: {count} ({count/len(df_train)*100:.1f}%)")
 
 # 2. Verificar dataset de teste
-print("\n[2] VERIFICANDO DATASET DE TESTE (2014-2016):")
-df_test = load_multiple_seasons('data/data_2014_2016')
+print("\n[2] VERIFICANDO DATASET DE TESTE (2023-2025):")
+df_test = load_multiple_seasons('data/data_2023_2025')
 print(f"✓ Total de partidas: {len(df_test):,}")
 print(f"✓ Temporadas: {df_test['Season'].nunique()} (de {df_test['Season'].min()} a {df_test['Season'].max()})")
 print(f"✓ Times únicos: {pd.concat([df_test['HomeTeam'], df_test['AwayTeam']]).nunique()}")
@@ -82,8 +82,8 @@ else:
 
 # 6. Verificar distribuição treino/teste
 print("\n[6] VERIFICANDO DIVISÃO TREINO/TESTE:")
-print(f"✓ Treino: {len(features_train)} partidas (2005-2014)")
-print(f"✓ Teste: {len(features_test)} partidas (2014-2016)")
+print(f"✓ Treino: {len(features_train)} partidas (2011-2023)")
+print(f"✓ Teste: {len(features_test)} partidas (2023-2025)")
 total_features = len(features_train) + len(features_test)
 print(f"✓ Proporção treino/teste: {len(features_train)/total_features*100:.1f}% / {len(features_test)/total_features*100:.1f}%")
 
@@ -96,7 +96,7 @@ print(f"✓ Mínimo: {jogos_por_temporada.min()} jogos (temporada {jogos_por_tem
 print(f"✓ Máximo: {jogos_por_temporada.max()} jogos (temporada {jogos_por_temporada.idxmax()})")
 print(f"\nJogos por temporada:")
 for season, count in jogos_por_temporada.items():
-    periodo = "TREINO" if season < 2014 or season == 2014 else "TESTE"
+    periodo = "TREINO" if season <= 2023 else "TESTE"
     print(f"  {season}: {count} jogos [{periodo}]")
 
 print("\n" + "="*60)

@@ -166,8 +166,30 @@ def load_multiple_seasons(directory_path):
             for col in rating_columns:
                 if col in df_combined.columns:
                     median_value = df_combined[col].median()
+                    # Se a mediana calculada for NaN (ex: todas as linhas NaN), usar mediana global do arquivo de ratings
+                    if pd.isna(median_value):
+                        # Mapear colunas H/A para colunas em df_ratings
+                        col_map = {
+                            'HOverall': 'Overall', 'AOverall': 'Overall',
+                            'HAttack': 'Attack', 'AAttack': 'Attack',
+                            'HMidfield': 'Midfield', 'AMidfield': 'Midfield',
+                            'HDefense': 'Defense', 'ADefense': 'Defense'
+                        }
+                        rating_key = col_map.get(col)
+                        if rating_key and not df_ratings.empty and rating_key in df_ratings.columns:
+                            median_value = df_ratings[rating_key].median()
+                            source = 'global ratings file'
+                        else:
+                            # Fallback final: escolher um valor razoável (75.0) para evitar NaNs
+                            median_value = 75.0
+                            source = 'default fallback'
+                        if pd.isna(median_value):
+                            median_value = 75.0
+                            source = 'default fallback'
+                        print(f"   {col}: mediana por temporada ausente → usando mediana global ({source}): {median_value:.1f}")
+                    else:
+                        print(f"   {col}: preenchido com {median_value:.1f}")
                     df_combined[col] = df_combined[col].fillna(median_value)
-                    print(f"   {col}: preenchido com {median_value:.1f}")
             
             # Recalcular diferenciais
             df_combined['overall_diff'] = df_combined['HOverall'] - df_combined['AOverall']
@@ -238,8 +260,9 @@ def load_all_data():
     Returns:
         DataFrame combinado com todas as temporadas (2005-2016)
     """
-    train_dir = "data/data_2005_2014"
-    test_dir = "data/data_2014_2016"
+    # Ajustado para novo split: treino 2011-2023, teste 2023-2025
+    train_dir = "data/data_2011_2023"
+    test_dir = "data/data_2023_2025"
     
     print("\nCarregando TODOS os dados (Treino + Teste)...")
     df_train = load_multiple_seasons(train_dir)

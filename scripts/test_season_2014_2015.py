@@ -1,5 +1,5 @@
 """
-Teste Rápido - Temporada 2014-2015
+Teste Rápido - Temporada 2023-2024
 ===================================
 
 Treina modelos no período 2005-2014 e testa APENAS na temporada 2014-2015.
@@ -36,12 +36,12 @@ def rps(y_true, y_prob):
     return np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1)) / k_minus_1
 
 print("="*80)
-print("TESTE RÁPIDO - TEMPORADA 2014-2015")
+print("TESTE RÁPIDO - TEMPORADA 2023-2024")
 print("="*80)
 print()
 print("Metodologia:")
-print("  - Treino: 2005-2014 (9 temporadas, 3420 partidas)")
-print("  - Teste: 2014-2015 (1 temporada, 380 partidas)")
+print("  - Treino: 2011-2023 (temporadas de treino)")
+print("  - Teste: 2023-2024 (1 temporada)")
 print("="*80)
 print()
 
@@ -50,22 +50,22 @@ print("Carregando dados...")
 df_all = load_all_data()
 df_features = calculate_team_stats(df_all)
 
-# Split treino/teste
-df_train = df_all[df_all['Season'] <= 2014].copy().reset_index(drop=True)
-df_test_2014_2015 = df_all[df_all['Season'] == 2015].copy().reset_index(drop=True)
+# Split treino/teste (novo split)
+df_train = df_all[df_all['Season'] <= 2023].copy().reset_index(drop=True)
+df_test_2023_2024 = df_all[df_all['Season'] == 2024].copy().reset_index(drop=True)
 
-df_features_train = df_features[df_all['Season'] <= 2014].reset_index(drop=True)
-df_features_test = df_features[df_all['Season'] == 2015].reset_index(drop=True)
+df_features_train = df_features[df_all['Season'] <= 2023].reset_index(drop=True)
+df_features_test = df_features[df_all['Season'] == 2024].reset_index(drop=True)
 
 print(f"   Treino: {len(df_train)} partidas")
-print(f"   Teste (2014-2015): {len(df_test_2014_2015)} partidas")
+print(f"   Teste (2023-2024): {len(df_test_2023_2024)} partidas")
 print()
 
 # Distribuição de classes
 y_train_full = df_train['Result']
-y_test = df_test_2014_2015['Result']
+y_test = df_test_2023_2024['Result']
 
-print("Distribuição de classes (2014-2015):")
+print("Distribuição de classes (2023-2024):")
 print(f"  Vitória Casa (H): {(y_test == 0).sum()} ({(y_test == 0).sum()/len(y_test)*100:.1f}%)")
 print(f"  Empate (D): {(y_test == 1).sum()} ({(y_test == 1).sum()/len(y_test)*100:.1f}%)")
 print(f"  Vitória Fora (A): {(y_test == 2).sum()} ({(y_test == 2).sum()/len(y_test)*100:.1f}%)")
@@ -191,7 +191,7 @@ for name, model in models.items():
 
 # Resumo final
 print("="*80)
-print("RESUMO FINAL - TEMPORADA 2014-2015")
+print("RESUMO FINAL - TEMPORADA 2023-2024")
 print("="*80)
 print()
 

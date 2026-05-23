@@ -57,11 +57,11 @@ print("Carregando dados...")
 df_all = load_all_data()
 df_features = calculate_team_stats(df_all)
 
-# Split treino/teste
-df_train = df_all[df_all['Season'] <= 2014].copy().reset_index(drop=True)
-df_test = df_all[df_all['Season'] > 2014].copy().reset_index(drop=True)
+# Split treino/teste (novo split)
+df_train = df_all[df_all['Season'] <= 2023].copy().reset_index(drop=True)
+df_test = df_all[df_all['Season'] > 2023].copy().reset_index(drop=True)
 
-df_features_test = df_features[df_all['Season'] > 2014].reset_index(drop=True)
+df_features_test = df_features[df_all['Season'] > 2023].reset_index(drop=True)
 
 print(f"   Teste: {len(df_test)} amostras")
 print()
@@ -75,9 +75,9 @@ print()
 
 # Temporadas de teste
 seasons_test = [
-    ('2014-2015', df_test['Season'] == 2015),
-    ('2015-2016', df_test['Season'] == 2016),
-    ('All', df_test['Season'] > 2014)
+    ('2023-2024', df_test['Season'] == 2024),
+    ('2024-2025', df_test['Season'] == 2025),
+    ('All', df_test['Season'] > 2023)
 ]
 
 all_ci_results = []

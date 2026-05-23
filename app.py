@@ -41,7 +41,7 @@ def load_models(_file_hash):
         return {}
 
 results_metadata = load_models(get_model_file_hash())
-models = results_metadata.get('models', results_metadata if isinstance(results_metadata, dict) and 'model' in str(results_metadata) else {})
+models = results_metadata.get('models', {})
 seasonal_results = results_metadata.get('seasonal_results', {})
 
 page = st.sidebar.selectbox("Navegação", [
@@ -87,9 +87,9 @@ if page == "Visão Geral":
     
     # Informação sobre a divisão treino/teste
     st.info(f"""
-    📋 **Metodologia do Artigo Científico:**
-    - **Período de Treinamento:** 2005-2014 (9 temporadas)
-    - **Período de Teste:** 2014-2016 (2 temporadas)
+    📋 **Metodologia do Artigo Científico (adaptada):**
+    - **Período de Treinamento:** 2011-2023
+    - **Período de Teste:** 2023-2025
     - **Total:** {len(df):,} partidas ({df['Season'].min()}-{df['Season'].max()})
     """)
     
@@ -192,7 +192,7 @@ if page == "Comparação de Modelos":
         st.warning("Nenhum modelo treinado encontrado. Execute `main.py` para treinar e gerar `models/trained_models.pkl`.")
     else:
         # Resultados gerais (conjunto completo)
-        st.subheader("📊 Resultados Gerais (Test Set Completo: 2014-2016)")
+        st.subheader("📊 Resultados Gerais (Test Set Completo: 2023-2025)")
         data = []
         for name, info in models.items():
             data.append([name, info.get('accuracy'), info.get('f1'), info.get('rps')])
@@ -214,9 +214,9 @@ if page == "Comparação de Modelos":
             st.info("💡 **Metodologia**: Cada temporada é avaliada separadamente para análise temporal da performance.")
             
             # Criar tabs para cada temporada
-            tab1, tab2, tab3 = st.tabs(["2014-2015", "2015-2016", "All (Combinado)"])
+            tab1, tab2, tab3 = st.tabs(["2023-2024", "2024-2025", "All (Combinado)"])
             
-            for tab, season_name in zip([tab1, tab2, tab3], ['2014-2015', '2015-2016', 'All']):
+            for tab, season_name in zip([tab1, tab2, tab3], ['2023-2024', '2024-2025', 'All']):
                 with tab:
                     if season_name in seasonal_results:
                         season_data = seasonal_results[season_name]
@@ -261,7 +261,7 @@ if page == "Comparação de Modelos":
             
             for model_name in model_names:
                 row = {'Modelo': model_name}
-                for season_name in ['2014-2015', '2015-2016', 'All']:
+                for season_name in ['2023-2024', '2024-2025', 'All']:
                     if season_name in seasonal_results and model_name in seasonal_results[season_name]:
                         acc = seasonal_results[season_name][model_name]['accuracy']
                         row[season_name] = f"{acc*100:.2f}%"
@@ -279,7 +279,7 @@ if page == "Comparação de Modelos":
             rps_data = []
             for model_name in model_names:
                 row = {'Modelo': model_name}
-                for season_name in ['2014-2015', '2015-2016', 'All']:
+                for season_name in ['2023-2024', '2024-2025', 'All']:
                     if season_name in seasonal_results and model_name in seasonal_results[season_name]:
                         rps = seasonal_results[season_name][model_name]['rps']
                         row[season_name] = f"{rps:.4f}"
@@ -293,8 +293,8 @@ if page == "Comparação de Modelos":
             # Exibir Radar Charts gerados (se existirem) e mostrar Brier/ROC ao lado
             st.markdown('---')
             st.subheader('Figura 1: Comparação Multi-Métrica (Radar Chart)')
-            seasons_imgs = [('2014-2015', 'models/figures/radar_chart_2014-2015.png'),
-                            ('2015-2016', 'models/figures/radar_chart_2015-2016.png'),
+            seasons_imgs = [('2023-2024', 'models/figures/radar_chart_2023-2024.png'),
+                            ('2024-2025', 'models/figures/radar_chart_2024-2025.png'),
                             ('All', 'models/figures/radar_chart_All.png')]
 
             # Carregar CSV atualizado para mostrar Brier/ROC
@@ -532,7 +532,7 @@ if page == "Análise Científica Consolidada":
         
         with tab3:
             st.markdown("**Tabela 3: Comparação Completa de Modelos**")
-            season_selector = st.selectbox("Selecione temporada", ['All', '2014-2015', '2015-2016'], index=0)
+            season_selector = st.selectbox("Selecione temporada", ['All', '2023-2024', '2024-2025'], index=0)
 
             if season_selector == 'All':
                 # arquivo consolidado (All)
@@ -543,7 +543,7 @@ if page == "Análise Científica Consolidada":
             else:
                 # tentar carregar CSV com métricas por temporada e filtrar
                 df_base = None
-                for p in ['models/baseline_comparison_with_metrics.csv', 'models/baseline_comparison.csv']:
+                for p in ['models/baseline_comparison.csv', 'models/baseline_comparison_with_metrics.csv']:
                     if os.path.exists(p):
                         try:
                             df_base = pd.read_csv(p)
@@ -658,22 +658,22 @@ if page == "Análise Científica Consolidada":
             st.markdown("**Figura 1: Comparação Multi-Métrica (Radar Chart)**")
             st.caption("Comparação visual de todas as métricas de performance dos modelos por temporada. Cada gráfico mostra Accuracy, Precision, Recall, F1-Score e 1-RPS (maior = melhor).")
             # Mostrar os três radar charts um abaixo do outro
-            img1 = 'models/figures/radar_chart_2014-2015.png'
-            img2 = 'models/figures/radar_chart_2015-2016.png'
+            img1 = 'models/figures/radar_chart_2023-2024.png'
+            img2 = 'models/figures/radar_chart_2024-2025.png'
             img3 = 'models/figures/radar_chart_All.png'
 
             if os.path.exists(img1):
-                st.image(img1, caption='Temporada 2014-2015', use_container_width=True)
+                st.image(img1, caption='Temporada 2023-2024', use_container_width=True)
             else:
                 st.warning(f'Figura não encontrada: {img1}')
 
             if os.path.exists(img2):
-                st.image(img2, caption='Temporada 2015-2016', use_container_width=True)
+                st.image(img2, caption='Temporada 2024-2025', use_container_width=True)
             else:
                 st.warning(f'Figura não encontrada: {img2}')
 
             if os.path.exists(img3):
-                st.image(img3, caption='All (2014-2016 combinado)', use_container_width=True)
+                st.image(img3, caption='All (2023-2025 combinado)', use_container_width=True)
             else:
                 st.warning(f'Figura não encontrada: {img3}')
         
@@ -702,21 +702,21 @@ if page == "Análise Científica Consolidada":
             st.caption("Visualização comparativa das principais métricas (Accuracy, Precision, Recall, F1-Score) entre todos os modelos, incluindo ensemble.")
             
             # Mostrar os três gráficos empilhados verticalmente
-            st.markdown("**Temporada 2014-2015:**")
-            img1 = 'models/figures/fig6_metrics_comparison_bars_2014-2015.png'
+            st.markdown("**Temporada 2023-2024:**")
+            img1 = 'models/figures/fig6_metrics_comparison_bars_2023-2024.png'
             if os.path.exists(img1):
                 st.image(img1, use_container_width=True)
             else:
                 st.warning(f'Figura não encontrada: {img1}')
             
-            st.markdown("**Temporada 2015-2016:**")
-            img2 = 'models/figures/fig6_metrics_comparison_bars_2015-2016.png'
+            st.markdown("**Temporada 2024-2025:**")
+            img2 = 'models/figures/fig6_metrics_comparison_bars_2024-2025.png'
             if os.path.exists(img2):
                 st.image(img2, use_container_width=True)
             else:
                 st.warning(f'Figura não encontrada: {img2}')
             
-            st.markdown("**All (2014-2016 combinado):**")
+            st.markdown("**All (2023-2025 combinado):**")
             img3 = 'models/figures/fig6_metrics_comparison_bars_All.png'
             if os.path.exists(img3):
                 st.image(img3, use_container_width=True)
@@ -746,7 +746,7 @@ if page == "Ajuste de Hiperparâmetros":
     st.header("Ajuste rápido de hiperparâmetros (grades pequenas)")
     df = load_all_data()
     features = calculate_team_stats(df)
-    train = features[features['Season'] <= 2014]  # Treino: 2005-2014
+    train = features[features['Season'] <= 2023]  # Treino: 2011-2023
     X_train = train.drop(['Result','Season'], axis=1)
     y_train = train['Result']
     results = pd.DataFrame()

@@ -14,15 +14,15 @@ from src.feature_engineering import calculate_team_stats
 
 def prepare_evaluation_data(feature_columns=None):
     """
-    Prepara dados de teste seguindo a metodologia do artigo científico.
-    Usa dados de teste de 2014-2016 (2 temporadas).
+    Prepara dados de teste seguindo o split atual do workspace.
+    Usa dados de teste em `data/data_2023_2025` (2 temporadas).
     
     Args:
         feature_columns: Lista opcional de colunas para filtrar (deve corresponder 
                         às features usadas durante o treinamento do modelo)
     """
-    # Carregar dados de teste (2014-2016)
-    df_test = load_multiple_seasons("data/data_2014_2016")
+    # Carregar dados de teste (2023-2025)
+    df_test = load_multiple_seasons("data/data_2023_2025")
     
     # Calcular features para dados de teste
     features_test = calculate_team_stats(df_test)
@@ -39,6 +39,8 @@ def prepare_evaluation_data(feature_columns=None):
 
 def evaluate_model(model, X_test, y_test):
     preds = model.predict(X_test)
+    # Converter para int se necessário (alguns modelos retornam float)
+    preds = np.asarray(preds, dtype=int)
     probs = model.predict_proba(X_test)
 
     cm = confusion_matrix(y_test, preds)
@@ -59,7 +61,7 @@ def evaluate_model(model, X_test, y_test):
     brier = np.mean(np.sum((y_bin - probs) ** 2, axis=1))
 
     # counts for debugging classes with no predictions
-    y_test_counts = np.bincount(y_test)
+    y_test_counts = np.bincount(y_test.astype(int))
     preds_counts = np.bincount(preds)
 
     return {

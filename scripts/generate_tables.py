@@ -28,8 +28,8 @@ print("="*80)
 
 # Carregar dados
 df_all = load_all_data()
-df_train = load_multiple_seasons("data/data_2005_2014")
-df_test = load_multiple_seasons("data/data_2014_2016")
+df_train = load_multiple_seasons("data/data_2011_2023")
+df_test = load_multiple_seasons("data/data_2023_2025")
 
 # Carregar modelos
 try:
@@ -87,8 +87,8 @@ tabela1 = pd.DataFrame({
         f'{empates:,} ({empates/total_partidas*100:.1f}%)',
         f'{vitorias_fora:,} ({vitorias_fora/total_partidas*100:.1f}%)',
         '',
-        f'{len(df_train):,} (2005-2014)',
-        f'{len(df_test):,} (2014-2016)',
+        f'{len(df_train):,} (2011-2023)',
+        f'{len(df_test):,} (2023-2025)',
         f'{len(df_train)/total_partidas*100:.1f}% / {len(df_test)/total_partidas*100:.1f}%'
     ]
 })

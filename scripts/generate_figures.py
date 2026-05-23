@@ -39,7 +39,7 @@ os.makedirs('models/figures', exist_ok=True)
 
 # Carregar dados
 df_all = load_all_data()
-df_test = load_multiple_seasons("data/data_2014_2016")
+df_test = load_multiple_seasons("data/data_2023_2025")
 features_test = calculate_team_stats(df_test)
 features_all = calculate_team_stats(df_all)
 
@@ -287,7 +287,7 @@ except Exception:
     df_base = None
 
 metrics_names = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
-seasons = ['2014-2015', '2015-2016', 'All']
+seasons = ['2023-2024', '2024-2025', 'All']
 
 for season in seasons:
     x = np.arange(len(metrics_names))
@@ -308,40 +308,49 @@ for season in seasons:
 
     for idx, model_name in enumerate(models_list):
         # Obter valores das métricas
-        if df_base is not None:
-            row = df_season_ml[df_season_ml['Modelo'] == model_name]
-            vals = []
-            for metric in ['Accuracy', 'Precision', 'Recall', 'F1']:
-                if metric in row.columns and not row.empty:
-                    try:
-                        vals.append(float(row[metric].values[0]))
-                    except Exception:
+        try:
+            if df_base is not None:
+                row = df_season_ml[df_season_ml['Modelo'] == model_name]
+                vals = []
+                for metric in ['Accuracy', 'Precision', 'Recall', 'F1']:
+                    if metric in row.columns and not row.empty:
+                        try:
+                            vals.append(float(row[metric].values[0]))
+                        except Exception:
+                            vals.append(0.0)
+                    else:
                         vals.append(0.0)
-                else:
-                    vals.append(0.0)
-        else:
-            # fallback: calcular predições no X_test combinado
-            info = models.get(model_name, {})
-            model = info.get('model')
-            feature_columns = info.get('feature_columns', None)
-            if feature_columns is not None:
-                X_test_model = X_test[feature_columns]
             else:
-                X_test_model = X_test
-            preds = model.predict(X_test_model)
-            vals = [
-                accuracy_score(y_test, preds),
-                precision_score(y_test, preds, average='macro', zero_division=0),
-                recall_score(y_test, preds, average='macro', zero_division=0),
-                f1_score(y_test, preds, average='macro', zero_division=0)
-            ]
+                # fallback: calcular predições no X_test combinado
+                info = models.get(model_name, {})
+                model = info.get('model')
+                feature_columns = info.get('feature_columns', None)
+                if feature_columns is not None:
+                    X_test_model = X_test[feature_columns]
+                else:
+                    X_test_model = X_test
+                preds = model.predict(X_test_model)
+                vals = [
+                    accuracy_score(y_test, preds),
+                    precision_score(y_test, preds, average='macro', zero_division=0),
+                    recall_score(y_test, preds, average='macro', zero_division=0),
+                    f1_score(y_test, preds, average='macro', zero_division=0)
+                ]
 
-        offset = (idx - (n_models - 1) / 2) * width
-        bars = ax.bar(x + offset, vals, width, label=model_name)
+            offset = (idx - (n_models - 1) / 2) * width
+            try:
+                bars = ax.bar(x + offset, vals, width, label=model_name)
 
-        for bar, v in zip(bars, vals):
-            ax.text(bar.get_x() + bar.get_width() / 2., v + 0.01,
-                    f"{v:.4f}", ha='center', va='bottom', fontsize=7, clip_on=False)
+                for bar, v in zip(bars, vals):
+                    try:
+                        ax.text(bar.get_x() + bar.get_width() / 2., v + 0.01,
+                                f"{v:.4f}", ha='center', va='bottom', fontsize=7, clip_on=False)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     ax.set_xlabel('Métricas', fontsize=12)
     ax.set_ylabel('Score', fontsize=12)

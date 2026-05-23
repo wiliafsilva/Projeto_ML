@@ -22,7 +22,7 @@ def main():
     # Carregar e processar
     print("\n1. Carregando dados...")
     df_all = load_all_data()
-    df_train = df_all[df_all['Season'] <= 2014].copy()
+    df_train = df_all[df_all['Season'] <= 2023].copy()
     
     print("2. Calculando features...")
     df_train = calculate_team_stats(df_train)

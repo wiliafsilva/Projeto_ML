@@ -46,12 +46,12 @@ def calculate_baseline_metrics():
     print("Calculando features...")
     df_features = calculate_team_stats(df_all)
     
-    # Train/Test split
-    df_train = df_all[df_all['Season'] <= 2014].copy().reset_index(drop=True)
-    df_test = df_all[df_all['Season'] > 2014].copy().reset_index(drop=True)
+    # Train/Test split (novo split)
+    df_train = df_all[df_all['Season'] <= 2023].copy().reset_index(drop=True)
+    df_test = df_all[df_all['Season'] > 2023].copy().reset_index(drop=True)
     
-    df_features_train = df_features[df_all['Season'] <= 2014].reset_index(drop=True)
-    df_features_test = df_features[df_all['Season'] > 2014].reset_index(drop=True)
+    df_features_train = df_features[df_all['Season'] <= 2023].reset_index(drop=True)
+    df_features_test = df_features[df_all['Season'] > 2023].reset_index(drop=True)
     
     # Remover colunas não-feature (Result e Season) para X
     X_train = df_features_train.drop(['Result', 'Season'], axis=1)
@@ -163,11 +163,11 @@ def calculate_baseline_metrics():
         
         models = models_data['models']
         
-        # Temporadas de teste
+        # Temporadas de teste (novo período)
         seasons_test = [
-            ('2014-2015', df_test['Season'] == 2015),
-            ('2015-2016', df_test['Season'] == 2016),
-            ('All', df_test['Season'] > 2014)
+            ('2023-2024', df_test['Season'] == 2024),
+            ('2024-2025', df_test['Season'] == 2025),
+            ('All', df_test['Season'] > 2023)
         ]
         
         all_results = []
