@@ -9,6 +9,14 @@ Autor: Projeto_ML
 Data: Março 2026
 """
 
+import sys
+import io
+
+# Forçar UTF-8 no Windows para evitar erro com emojis e caracteres especiais
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 import pandas as pd
 import joblib
 import numpy as np

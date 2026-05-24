@@ -2,17 +2,25 @@
 Correlation Heatmap - Feature Analysis
 =======================================
 
-Gera heatmap de correlação entre todas as 43 features para identificar:
+Gera heatmap de correlação entre todas as 59 features (43 originais + 16 latentes) para identificar:
 - Multicolinearidade (correlações > 0.8)
 - Features redundantes
 - Grupos de features relacionadas
+- Correlações entre features originais e latentes
 
 Autor: Projeto_ML
-Data: Março 2026
+Data: Maio 2026
 """
 
 import sys
 import os
+import io
+
+# UTF-8 para Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
@@ -27,16 +35,16 @@ print("CORRELATION HEATMAP - ANÁLISE DE FEATURES")
 print("="*80)
 print()
 
-# Carregar dados e calcular features
+# Carregar dados e calcular features (com 16 features latentes do autoencoder)
 print("📂 Carregando dados e calculando features...")
 df_all = load_all_data()
-df_features = calculate_team_stats(df_all)
+df_features = calculate_team_stats(df_all, add_latent=True)  # 59 features: 43 originais + 16 latentes
 
 # Remove Result e Season para ter apenas features
 feature_cols = [col for col in df_features.columns if col not in ['Result', 'Season']]
 X = df_features[feature_cols]
 
-print(f"   ✓ {len(feature_cols)} features")
+print(f"   ✓ {len(feature_cols)} features (43 originais + 16 latentes = 59 total)")
 print(f"   ✓ {len(X)} amostras")
 print()
 
@@ -101,7 +109,7 @@ sns.heatmap(
 )
 
 # Títulos e labels
-ax.set_title('Correlation Heatmap - 43 Features', fontsize=18, fontweight='bold', pad=20)
+ax.set_title('Correlation Heatmap - 59 Features (43 + 16 Latentes)', fontsize=18, fontweight='bold', pad=20)
 ax.set_xlabel('Features', fontsize=12, fontweight='bold')
 ax.set_ylabel('Features', fontsize=12, fontweight='bold')
 
@@ -122,6 +130,8 @@ print()
 # Estatísticas sobre correlações
 print("📈 ESTATÍSTICAS DA MATRIZ DE CORRELAÇÃO:")
 print("-" * 60)
+print(f"   ℹ️  Analisando 59 features: 43 originais + 16 latentes (autoencoder)")
+print()
 
 # Flatten a matriz (pegando apenas triângulo inferior para evitar duplicatas)
 mask_lower = np.tril(np.ones_like(corr_matrix, dtype=bool), k=-1)
@@ -149,7 +159,13 @@ print("="*80)
 print("✅ CORRELATION HEATMAP CONCLUÍDO!")
 print("="*80)
 print()
+print("� RESUMO:")
+print(f"   ✓ Features analisadas: {len(feature_cols)} (43 originais + 16 latentes)")
+print(f"   ✓ Matriz de correlação: {corr_matrix.shape[0]}x{corr_matrix.shape[1]}")
+print(f"   ✓ Correlações altas (>0.8): {len(high_corr)}")
+print()
 print("💡 PRÓXIMOS PASSOS:")
 print("   - Revisar features com alta correlação (> 0.8)")
 print("   - Considerar remover features redundantes")
+print("   - Analisar correlação entre features originais e latentes")
 print("   - Calcular VIF (Variance Inflation Factor) para análise detalhada")

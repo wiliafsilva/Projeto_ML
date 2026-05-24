@@ -72,7 +72,6 @@ tabela1 = pd.DataFrame({
         'Vitórias Casa',
         'Empates',
         'Vitórias Visitante',
-        '',
         'Partidas Treino',
         'Partidas Teste',
         'Split Treino/Teste'
@@ -86,7 +85,6 @@ tabela1 = pd.DataFrame({
         f'{vitorias_casa:,} ({vitorias_casa/total_partidas*100:.1f}%)',
         f'{empates:,} ({empates/total_partidas*100:.1f}%)',
         f'{vitorias_fora:,} ({vitorias_fora/total_partidas*100:.1f}%)',
-        '',
         f'{len(df_train):,} (2005-2014)',
         f'{len(df_test):,} (2014-2016)',
         f'{len(df_train)/total_partidas*100:.1f}% / {len(df_test)/total_partidas*100:.1f}%'
@@ -262,7 +260,7 @@ for season in sorted(features_test['Season'].unique()):
     baseline_acc_season = accuracy_score(y_season, baseline_preds_season)
     
     row = {
-        'Temporada': f'{int(season)}-{int(season)+1}',
+        'Temporada': f'{int(season)-1}-{int(season)}',
         'Jogos': len(y_season),
         'Baseline': f'{baseline_acc_season*100:.2f}%'
     }

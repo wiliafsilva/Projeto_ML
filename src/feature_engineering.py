@@ -490,7 +490,7 @@ def calculate_interaction_features(df_features):
     return interactions
 
 
-def calculate_team_stats(df):
+def calculate_team_stats(df, add_latent=True):
 
     teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()
     team_data = {team: {'gd':0, 'history':[]} for team in teams}
@@ -612,6 +612,53 @@ def calculate_team_stats(df):
     df_interactions = calculate_interaction_features(df_features)
     df_features = pd.concat([df_features, df_interactions], axis=1)
     
+    # ======== ADICIONAR LATENT FEATURES VIA AUTOENCODER SE DISPONÍVEL ========
+    if add_latent and 'latent_0' not in df_features.columns:
+        import os
+        models_dir = "models"
+        encoder_filename = "encoder_16dims.keras"
+        scaler_filename = "scaler_43features.pkl"
+        encoder_path = os.path.join(models_dir, encoder_filename)
+        scaler_path = os.path.join(models_dir, scaler_filename)
+        
+        if os.path.exists(encoder_path) and os.path.exists(scaler_path):
+            print("[Pipeline] Encoder detectado: adicionando 16 features latentes...")
+            try:
+                from src.encoder import load_encoder_models, extract_latent_features
+                from src.latent_features import combine_original_and_latent
+                
+                # Listar as Class B features usadas como entrada do encoder
+                encoder_inputs = [
+                    'gd_diff', 'streak_diff', 'weighted_diff',
+                    'form_diff',
+                    'corners_diff', 'shotsontarget_diff', 'shots_diff', 'goals_avg_diff',
+                    'overall_diff', 'attack_diff', 'midfield_diff', 'defense_diff',
+                    'position_diff', 'points_diff',
+                    'h2h_confidence', 'away_advantage', 'season_trend',
+                    'position_form_home', 'position_form_away', 'strength_balance',
+                    'B365H', 'B365D', 'B365A',
+                    'prob_home', 'prob_draw', 'prob_away',
+                    'prob_home_norm', 'prob_draw_norm', 'prob_away_norm',
+                ]
+                
+                # Matriz de entrada do encoder
+                available_enc = [f for f in encoder_inputs if f in df_features.columns]
+                X_enc = df_features[available_enc].fillna(0).values
+                
+                # Carregar encoder e scaler
+                encoder, scaler = load_encoder_models(path=models_dir)
+                
+                # Extrair features latentes
+                latent_features = extract_latent_features(X_enc, encoder, scaler)
+                
+                # Combinar com o df_features
+                df_features = combine_original_and_latent(df_features, latent_features)
+                print("[Pipeline] ✓ 16 features latentes adicionadas com sucesso!")
+            except Exception as e:
+                print(f"[Pipeline] ⚠ Falha ao adicionar features latentes: {e}")
+        else:
+            print("[Pipeline] Modelos do Encoder não encontrados. Pulando injeção de latentes.")
+            
     print(f"[Pipeline] Features finais: {df_features.columns.tolist()}")
     print(f"[Pipeline] Shape: {df_features.shape}")
     

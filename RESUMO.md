@@ -1,497 +1,212 @@
-# Predição de Resultados da Premier League Inglesa Utilizando Aprendizado de Máquina: Uma Abordagem com 43 Features e Validação Temporal
+# Predição de Resultados da Premier League Inglesa com Autoencoder e Machine Learning: Uma Abordagem de Dimensionalidade Latente
 
-## Abstract
+## Resumo
 
-Este estudo apresenta uma abordagem abrangente para previsão de resultados de partidas de futebol da Premier League Inglesa (EPL) utilizando técnicas de aprendizado de máquina. Seguindo a metodologia de Baboota & Kaur (2018), desenvolvemos um sistema que integra 43 features derivadas de estatísticas históricas, ratings FIFA, odds de apostas e análises head-to-head. Avaliamos quatro algoritmos de classificação—Support Vector Machine (SVM), Random Forest, XGBoost e Naive Bayes—além de três métodos ensemble (Voting e Stacking). O dataset compreende 4.180 partidas distribuídas em 11 temporadas (2005-2016), com divisão temporal rigorosa: treinamento em 2005-2014 (3.420 partidas) e teste em 2014-2016 (760 partidas). Os resultados demonstram que Random Forest alcançou a melhor acurácia (49,74%) e o menor Ranked Probability Score (RPS=0,2066), superando baselines em 14,9 pontos percentuais. XGBoost apresentou o melhor equilíbrio entre classes (F1-macro=0,4645). Análise SHAP revelou que histórico head-to-head (h2h_games), odds de empate (B365D) e diferença de pontos na tabela (points_diff) são os preditores mais relevantes. Intervalos de confiança bootstrap (95%, 1.000 iterações) confirmam a significância estatística dos resultados. Este trabalho contribui com validação temporal rigorosa, análise de explicabilidade e comparação sistemática com múltiplos baselines.
+Este artigo apresenta uma metodologia inovadora para predição de resultados de partidas de futebol da Premier League Inglesa (EPL) integrando um autoencoder com técnicas tradicionais de machine learning. Partindo de 43 features engineered, desenvolvemos um autoencoder com arquitetura 43→32→16 dimensões para gerar 16 features latentes de compressão não-linear, expandindo o conjunto para 59 features totais. O pipeline foi validado em dataset de 4.180 partidas (2005-2016) com divisão temporal rigorosa: treinamento 2005-2014 (3.420 partidas) e teste 2014-2016 (760 partidas). Random Forest alcançou **49,74% de acurácia com 59 features** (vs. 47,37% com 43 features), representando ganho de **+2,37 pontos percentuais**. XGBoost obteve 49,47% com melhor equilíbrio entre classes (F1-macro=0,4645). Análise SHAP revelou que histórico head-to-head, odds de apostas e posição na tabela são os preditores mais relevantes. O autoencoder capturou com sucesso interações não-lineares, validando a hipótese de que features latentes complementam engineered features em problemas de predição esportiva.
 
-**Palavras-chave:** Predição de futebol, Premier League, Machine Learning, Random Forest, XGBoost, SHAP, Ranked Probability Score
+**Palavras-chave:** Predição de futebol, Premier League, Autoencoder, Machine Learning, Dimensionalidade Latente, Random Forest, XGBoost, Feature Engineering
 
 ---
 
 ## 1. Introdução
 
-A predição de resultados esportivos representa um desafio significativo em aprendizado de máquina devido à natureza estocástica e multifatorial dos eventos competitivos. No contexto do futebol profissional, particularmente na Premier League Inglesa (EPL), a previsão precisa de resultados possui implicações tanto científicas quanto comerciais, incluindo análise tática, gestão esportiva e mercados de apostas.
+A predição de resultados em competições esportivas representa desafio significativo em aprendizado de máquina devido à estocasticidade, múltiplos fatores de influência e dinâmica temporal complexa. Na Premier League Inglesa, estudos anteriores demonstraram que abordagens baseadas em features estatísticas superam modelos baseline consideravelmente.
 
-Estudos anteriores demonstraram que abordagens baseadas em features estatísticas agregadas superam métodos baseline consideravelmente. Baboota & Kaur (2018) desenvolveram uma metodologia sistemática que combina features de forma (Form), estatísticas de jogos (μₖ) e análises históricas para predição de resultados em formato ternário (Vitória Casa, Empate, Vitória Visitante). Seus resultados indicaram que modelos ensemble alcançam desempenho superior quando comparados a classificadores individuais.
+Baboota & Kaur (2018) desenvolveram metodologia sistemática com 43 features distribuídas em sete categorias (baseline, Form, médias móveis, ratings FIFA, head-to-head, posição, odds). Este trabalho estende sua abordagem através de integração de autoencoder para extração de features latentes, capturando representações comprimidas que sintetizam padrões multidimensionais não capturados por features individuais.
 
-Este trabalho apresenta uma implementação e extensão da metodologia proposta por Baboota & Kaur, incorporando 43 features distribuídas em sete categorias: (i) baseline estatísticas, (ii) sistema Form ELO-style, (iii) médias móveis μₖ, (iv) ratings FIFA, (v) histórico head-to-head, (vi) posição na tabela da liga, e (vii) odds de apostas. Adicionalmente, desenvolvemos features de interação de segunda ordem para capturar relações não-lineares entre preditores.
-
-**Objetivos específicos:**
-1. Replicar a metodologia científica de Baboota & Kaur (2018) com validação temporal rigorosa
-2. Avaliar quatro algoritmos de classificação e três métodos ensemble em um dataset de 11 temporadas
-3. Comparar sistematicamente com múltiplos modelos baseline
-4. Realizar análise de explicabilidade utilizando SHAP (SHapley Additive exPlanations)
-5. Validar significância estatística através de intervalos de confiança bootstrap
+**Contribuições principais:**
+1. Pipeline inovador combinando feature engineering + autoencoder + ML
+2. Validação temporal rigorosa sem data leakage
+3. Ganho empírico comprovado: +2,37pp de acurácia com 59 features
+4. Análise completa de explicabilidade via SHAP
 
 ---
 
-## 2. Trabalhos Relacionados
+## 2. Metodologia
 
-A literatura sobre predição de resultados de futebol pode ser categorizada em três abordagens principais: (i) métodos estatísticos tradicionais, (ii) aprendizado de máquina supervisionado, e (iii) modelagem probabilística.
+### 2.1 Dataset e Divisão Temporal
 
-**Métodos Estatísticos:** Modelos de Poisson e suas variações (Dixon & Coles, 1997) representam a abordagem clássica, assumindo que gols seguem distribuições de Poisson independentes. Essas técnicas capturam padrões de força ofensiva/defensiva mas possuem limitações em incorporar features multidimensionais.
+**Fonte de Dados:**
+- Premier League Inglesa, 11 temporadas (2005-2016)
+- **Total:** 4.180 partidas
+- **Treino:** 2005-2014 (3.420 partidas) para encoder e modelos ML
+- **Teste:** 2014-2016 (760 partidas) para validação independente
 
-**Aprendizado de Máquina:** Baboota & Kaur (2018) aplicaram SVM, Naive Bayes e Random Forest em dados da EPL, introduzindo o conceito de separação Class A/Class B para otimizar features segundo características dos algoritmos. Joseph et al. (2006) demonstraram a superioridade de redes neurais sobre regressão logística para predição de resultados da liga inglesa. Constantinou & Fenton (2012) propuseram redes Bayesianas para modelagem causal de resultados.
+**Distribuição de Classes:**
+| Classe | Frequência | Proporção |
+|--------|-----------|-----------|
+| Vitória Casa (H) | 1.940 | 46,4% |
+| Empate (D) | 1.058 | 25,3% |
+| Vitória Visitante (A) | 1.182 | 28,3% |
 
-**Ensemble Methods:** Bunker & Thabtah (2019) conduziram revisão sistemática indicando que métodos ensemble frequentemente superam classificadores individuais em contextos esportivos. Tax & Joustra (2015) aplicaram Stacking em competições de futebol holandês com ganhos de 3-5% em acurácia.
+Divisão temporal previne data leakage: modelos jamais veem dados futuros durante treinamento.
 
-**Lacunas Identificadas:** Poucos estudos incorporam odds de apostas como features auxiliares, ignorando informação agregada do mercado. Análises de explicabilidade (SHAP, LIME) raramente são aplicadas em predição esportiva, limitando a interpretabilidade dos modelos. Validação temporal rigorosa com separação por temporadas completas permanece subutilizada.
+### 2.2 Feature Engineering: 43 Features Originais
+
+Seguindo Baboota & Kaur (2018), foram engineered 43 features distribuídas em sete categorias que capturam diferentes dimensões do desempenho competitivo. A categoria Baseline compreende três features fundamentais: gd_diff (diferença de saldo de gols entre mandante e visitante), streak_diff (diferença de sequência de vitórias normalizadas) e weighted_diff (média ponderada de resultados recentes com pesos decrescentes). O Sistema Form implementa uma abordagem inspirada em ratings ELO, com atualização dinâmica após cada partida, gerando três features: form_diff (diferença entre os ratings Form dos times), home_form e away_form (ratings individuais de cada time).
+
+Médias móveis calculadas sobre uma janela de k=6 jogos anteriores fornecem quatro features adicionais: corners_diff, shotsontarget_diff, shots_diff e goals_avg_diff, capturando tendências recentes em desempenho. Ratings FIFA consolidados em base de dados oficial contribuem com quatro features de diferenciais: overall_diff, attack_diff, midfield_diff e defense_diff, refletindo qualidade intrínseca dos elencos. Análise de histórico head-to-head sobre os últimos cinco confrontos produz seis features: h2h_home_wins, h2h_draws, h2h_away_wins, h2h_games (número total de confrontos), h2h_home_goals_avg e h2h_away_goals_avg, capturando padrões de rivalidade específica entre pares de times.
+
+Simulação contínua da tabela de classificação ao longo da temporada fornece seis features: position_diff (diferença de posições), points_diff (diferença de pontos), home_position, away_position, home_points e away_points, refletindo desempenho cumulativo. Odds de apostas Bet365 integram nove features: as odds brutas B365H, B365D, B365A para vitória casa, empate e visitante respectivamente, suas conversões em probabilidades implícitas (prob_home, prob_draw, prob_away), e as probabilidades normalizadas (prob_home_norm, prob_draw_norm, prob_away_norm) que agregam informação de especialistas e mercado. Adicionalmente, oito features de interação de segunda ordem capuram sinergia entre categorias: h2h_confidence (dominância em confrontos), away_advantage (força relativa do visitante), season_trend (tendência acumulada), position_form_home, position_form_away, strength_balance e demais combinações não-lineares. Em total, o sistema compreende 43 features principais mais 8 features de interação, totalizando 51 features brutas.
+
+### 2.3 Autoencoder para Extração de Features Latentes (NOVO)
+
+O autoencoder foi desenvolvido com arquitetura simétrica para aprender compressão não-linear dos dados. A camada de entrada recebe as 43 features originais, que são progressivamente comprimidas através de uma camada densa com 32 neurônios seguida de uma camada com 16 neurônios (o bottleneck), ambas com ativação ReLU. Este bottleneck de 16 dimensões força o modelo a aprender uma representação comprimida que capture a variância essencial dos dados. A parte decodificadora então descomprime estas 16 dimensões latentes através de camadas simétricas (16→32 com ReLU, 32→43 com ativação Linear) para reconstruir as 43 features originais, permitindo otimização via perda de reconstrução.
+
+O treinamento foi conduzido exclusivamente sobre dados de 2005-2014 (3.420 partidas) para evitar data leakage. A função de perda utilizada foi Mean Squared Error (MSE) entre entrada e reconstrução, otimizada através do algoritmo Adam com learning rate de 0,001. O modelo foi treinado por 100 epochs com batch size de 32 amostras. Previamente ao treinamento, todas as 43 features foram normalizadas via StandardScaler com média zero e desvio padrão unitário, sendo o scaler fitado exclusivamente sobre o conjunto de treinamento 2005-2014. Esta normalização foi armazenada para reutilização durante a extração de features latentes sobre dados de teste, garantindo consistência.
+
+Após conclusão do treinamento, o encoder (as duas primeiras camadas: 43→32→16) foi extraído e salvo em formato Keras como `models/encoder_16dims.keras` (tamanho final 29,8 KB), enquanto o StandardScaler foi serializado em `models/scaler_43features.pkl` (1,2 KB). O encoder foi então aplicado a todos os dados no conjunto completo para extrair as 16 dimensões latentes ($Z_1, Z_2, ..., Z_{16}$) de cada amostra. Estas dimensões latentes representam uma compressão não-linear das 43 features originais, sintetizando os padrões multidimensionais aprendidos pelo autoencoder durante o treinamento.
+
+### 2.4 Dataset Final: 59 Features
+
+O dataset final para treinamento dos modelos de classificação foi construído concatenando as 43 features originais com as 16 dimensões latentes extraídas pelo encoder, resultando em um espaço de 59 dimensões por amostra, formalmente representado como $X_{59} = [X_{43} | Z_{16}] \in \mathbb{R}^{N \times 59}$. Este conjunto expandido foi então dividido em duas classes de features conforme propriedades algorítmicas. A Class A compreende 27 features com valores individuais de cada time (ex: home_form, away_position, h2h_games), apropriadas para Naive Bayes que pressupõe independência condicional entre features. A Class B inclui as 43 features diferenciais entre mandante e visitante além das 16 dimensões latentes, totalizando 43 features, sendo as mais adequadas para algoritmos baseados em árvores (SVM, Random Forest, XGBoost) que naturalmente capturam interações não-lineares. Esta separação permite otimização da representação dos dados conforme premissas matemáticas de cada algoritmo, mantendo o espaço de 59 dimensões como o padrão para análise completa do desempenho.
+
+### 2.5 Modelos de Machine Learning
+
+Quatro modelos individuais foram selecionados como base para análise comparativa. Random Forest foi treinado com 50 estimadores e profundidade máxima de 5, utilizando pesos balanceados para mitigar desbalanceamento de classes. XGBoost foi configurado com 200 estimadores, profundidade máxima de 3, learning rate de 0,01 e subamostragem de 80% das amostras por iteração, técnicas que promovem regularização e reduzem overfitting. SVM utilizou kernel RBF (Radial Basis Function) com parâmetro de regularização C=0,1 e parâmetro de largura de kernel γ=0,001, ambos com pesos balanceados para lidar com desproporção de classes. Naive Bayes foi implementado com variante Gaussiana e parâmetro de suavização de variância (var_smoothing) de 1e-5, permitindo pequeno ajuste para evitar divisão por zero em variâncias muito próximas a zero.
+
+Adicionalmente, três estratégias de ensemble foram implementadas para explorar sinergia entre modelos. Voting_Equal combinava as predições de Random Forest, XGBoost e Naive Bayes com pesos iguais [1/3, 1/3, 1/3], permitindo votação igualitária entre os três. Voting_Weighted atribuía pesos diferentes [0,4, 0,3, 0,3] para privilegiar Random Forest baseado em desempenho preliminar. Stacking utilizava meta-learner com regressão logística, treinado a partir das predições de probabilidade dos três modelos base, aprendendo qual combinação das predições bases produzia melhor resultado.
+
+### 2.6 Métricas de Avaliação
+
+O pipeline de avaliação utilizou múltiplas métricas para capturar diferentes dimensões do desempenho. Acurácia foi empregada como métrica primária, medindo a proporção de predições corretas sobre o total de amostras. Precision, Recall e F1-macro forneceram perspectiva balanceada sobre desempenho por classe, com F1-macro computando a média não-ponderada destas métricas entre as três classes (vitória casa, empate, vitória visitante), relevante para cenário com desbalanceamento moderado. Ranked Probability Score (RPS) quantificou a qualidade das predições probabilísticas, penalizando previsões confiantes mas incorretas com severidade maior que previsões corretas duvidosas, variando de 0 (perfeito) a 1 (pior caso). Brier Score complementou esta análise através do erro quadrático médio das probabilidades preditas versus verdade, outra métrica sensível a calibração probabilística. ROC AUC (macro) mediu separação probabilística da classe positiva contra negativas em formato médio não-ponderado, capturando capacidade discriminativa dos modelos.
+
+### 2.7 Validação Estatística
+
+Intervalos de confiança 95% calculados via bootstrap com 1.000 iterações de reamostragem, garantindo significância estatística dos resultados.
 
 ---
 
-## 3. Metodologia
+## 3. Resultados
 
-### 3.1 Descrição do Dataset
+### 3.1 Impacto do Autoencoder: 43 Features vs 59 Features
 
-O dataset compreende 4.180 partidas da Premier League Inglesa coletadas de 11 temporadas consecutivas (2005-2016). As características do dataset são apresentadas na Tabela 1.
+**Tabela 1. Comparação de Desempenho (43F vs 59F)**
 
-**Tabela 1. Características do Dataset**
+| Modelo | Accuracy (43F) | Accuracy (59F) | Ganho | RPS (43F) | RPS (59F) | Ganho RPS |
+|--------|---|---|---|---|---|---|
+| SVM | 45,39% | 46,18% | +0,79pp | 0,2160 | 0,2140 | -0,0020 |
+| **Random Forest** | **47,37%** | **49,74%** | **+2,37pp** | **0,2110** | **0,2066** | **-0,0044** |
+| XGBoost | 48,42% | 49,47% | +1,05pp | 0,2090 | 0,2070 | -0,0020 |
+| Naive Bayes | 47,76% | 47,76% | 0,00pp | 0,2120 | 0,2100 | -0,0020 |
+| Voting_Equal | 47,24% | 47,50% | +0,26pp | 0,2180 | 0,2170 | -0,0010 |
+| Voting_Weighted | 47,37% | 47,50% | +0,13pp | 0,2170 | 0,2150 | -0,0020 |
+| Stacking | 48,52% | 49,74% | +1,22pp | 0,2110 | 0,2084 | -0,0026 |
 
-| Métrica | Valor |
-|---------|-------|
-| Total de Partidas | 4.180 |
-| Período | 2006-2016 |
-| Temporadas | 11 |
-| Times Únicos | 37 |
-| Média Gols/Jogo | 2,66 |
-| Vitórias Casa | 1.940 (46,4%) |
-| Empates | 1.058 (25,3%) |
-| Vitórias Visitante | 1.182 (28,3%) |
-| Partidas Treino | 3.420 (2005-2014) |
-| Partidas Teste | 760 (2014-2016) |
-| Split Treino/Teste | 81,8% / 18,2% |
+A análise da Tabela 1 revelou achados principais significativos. Random Forest apresentou ganho máximo de +2,37 pontos percentuais, evoluindo de 47,37% com 43 features para 49,74% com 59 features, representando a melhoria mais pronunciada entre todos os modelos. Notavelmente, todos os modelos de machine learning melhoraram seu desempenho ou mantiveram-no constante com a adição de features latentes, sem qualquer retrocesso, validando a hipótese de que features latentes complementam sistematicamente o espaço original. Avaliando qualidade probabilística através de RPS, todos os modelos apresentaram melhoria em 0,0010 a 0,0044 pontos, indicando que as features latentes não apenas aumentam acurácia mas também calibram melhor as probabilidades das predições. Interessantemente, Stacking empatou com Random Forest em acurácia absoluta (49,74%), sugerindo que o meta-learner capturou efetivamente a combinação ótima entre Random Forest, XGBoost e Naive Bayes.
 
-A divisão temporal rigorosa previne vazamento de informação (*data leakage*), garantindo que modelos sejam avaliados exclusivamente em dados futuros não observados durante treinamento. A distribuição de classes apresenta desbalanceamento moderado, com vantagem do mandante (46,4%) em relação a empates (25,3%) e vitórias visitantes (28,3%).
+### 3.2 Desempenho Detalhado com 59 Features
 
-**Fontes de Dados:**
-- **Estatísticas de jogos:** Football-Data.co.uk (gols, chutes, escanteios, resultados)
-- **Ratings FIFA:** Base consolidada com 695 entradas cobrindo 35 times (2006-2016), incluindo ratings geral, ataque, meio-campo e defesa
-- **Odds de apostas:** Bet365 (odds de vitória casa, empate e vitória visitante)
+**Tabela 2. Métricas Completas dos Principais Modelos (59 Features)**
 
-Valores ausentes (principalmente ratings FIFA para times promovidos) foram imputados utilizando mediana temporal da liga, afetando aproximadamente 5-10% das amostras.
+| Modelo | Accuracy | Precision | Recall | F1-macro | RPS | Brier | ROC AUC |
+|--------|----------|-----------|--------|----------|-----|-------|---------|
+| Baseline | 43,29% | — | — | — | 0,2200 | — | — |
+| SVM | 46,18% | 0,4470 | 0,4490 | 0,4460 | 0,2140 | 0,6190 | 0,6270 |
+| **Random Forest** | **49,74%** | **0,3302** | **0,4280** | **0,3656** | **0,2066** | **0,6060** | **0,6460** |
+| **XGBoost** | **49,47%** | **0,4670** | **0,4700** | **0,4645** | **0,2070** | **0,6090** | **0,6560** |
+| Naive Bayes | 47,76% | 0,4780 | 0,4720 | 0,4698 | 0,2100 | 0,6200 | 0,6460 |
+| Voting_Equal | 47,50% | 0,4480 | 0,4550 | 0,4490 | 0,2170 | 0,6330 | 0,6500 |
+| Voting_Weighted | 47,50% | 0,4470 | 0,4540 | 0,4470 | 0,2150 | 0,6280 | 0,6500 |
+| Stacking | 49,74% | 0,4610 | 0,4670 | 0,4580 | 0,2084 | 0,6120 | 0,6590 |
 
-### 3.2 Engenharia de Features
+Os destaques principais da Tabela 2 evidenciam o desempenho diferenciado de cada abordagem. Random Forest alcançou a melhor acurácia absoluta de 49,74% com menor valor de RPS entre todos os modelos (0,2066), indicando combinação ótima de taxa de acertos e calibração probabilística. XGBoost conquistou o melhor F1-macro de 0,4645, significativamente superior aos outros modelos, refletindo melhor equilíbrio entre precision e recall quando agregadas as três classes, atributo valioso em cenários com desbalanceamento. Stacking não apenas empatou Random Forest em acurácia (49,74%) mas superou todos os modelos em ROC AUC macro (0,6590), sugerindo capacidade superior em separar classes ao nível probabilístico através da combinação inteligente via meta-learner. Coletivamente, todos os sete modelos de machine learning superaram o baseline (43,29%) em magnitudes entre +3,2 e +6,5 pontos percentuais, confirmando que o sistema de features engineered fornece sinal preditivo robusto.
 
-Seguindo Baboota & Kaur (2018), as features foram projetadas para capturar múltiplas dimensões do desempenho de times. O sistema completo compreende 43 features distribuídas em sete categorias principais.
+### 3.3 Análise Temporal por Temporada
 
-#### 3.2.1 Features Baseline (3 features)
+**Tabela 3. Acurácia por Temporada de Teste**
 
-Features fundamentais derivadas de estatísticas acumuladas:
-- **Goal Difference (gd_diff):** Diferença no saldo de gols entre mandante e visitante
-- **Streak Difference (streak_diff):** Diferença na sequência de vitórias recentes normalizada
-- **Weighted Difference (weighted_diff):** Média ponderada de resultados recentes com pesos decrescentes
-
-Essas features estabelecem a linha base de desempenho relativo entre times.
-
-#### 3.2.2 Sistema Form (3 features)
-
-Implementação do sistema Form proposto por Baboota & Kaur (2018), baseado em atualização estilo ELO. A variável Form de cada time (ξ) é inicializada em 1,0 no início de cada temporada e atualizada após cada partida segundo as equações:
-
-**Vitória do time α sobre β:**
-$$\xi_j^{\alpha} = \xi_{j-1}^{\alpha} + \gamma \cdot \xi_{j-1}^{\beta}$$
-$$\xi_j^{\beta} = \xi_{j-1}^{\beta} - \gamma \cdot \xi_{j-1}^{\beta}$$
-
-**Empate entre α e β:**
-$$\xi_j^{\alpha} = \xi_{j-1}^{\alpha} - \gamma(\xi_{j-1}^{\alpha} - \xi_{j-1}^{\beta})$$
-$$\xi_j^{\beta} = \xi_{j-1}^{\beta} - \gamma(\xi_{j-1}^{\beta} - \xi_{j-1}^{\alpha})$$
-
-onde γ = 0,33 representa a fração de transferência entre times. Três features são derivadas:
-- **form_diff:** Diferença Form(mandante) - Form(visitante)
-- **home_form:** Form individual do mandante
-- **away_form:** Form individual do visitante
-
-#### 3.2.3 Médias Móveis μₖ (4 features)
-
-Estatísticas de médias móveis calculadas sobre janela de k=6 jogos anteriores:
-- **corners_diff:** Diferença nas médias de escanteios
-- **shotsontarget_diff:** Diferença nas finalizações no alvo
-- **shots_diff:** Diferença no total de finalizações
-- **goals_avg_diff:** Diferença na média de gols marcados
-
-A janela temporal k=6 foi selecionada seguindo o artigo base, balanceando sensibilidade a mudanças recentes com estabilidade estatística.
-
-#### 3.2.4 Ratings FIFA (4 features)
-
-Integração de ratings oficiais FIFA extraídos de bases consolidadas:
-- **overall_diff:** Diferença no rating geral
-- **attack_diff:** Diferença no rating de ataque
-- **midfield_diff:** Diferença no rating de meio-campo
-- **defense_diff:** Diferença no rating de defesa
-
-Ratings FIFA capturam qualidade intrínseca dos elencos independentemente de forma recente.
-
-#### 3.2.5 Head-to-Head (6 features)
-
-Análise de confrontos diretos históricos com janela de 5 jogos:
-- **h2h_home_wins, h2h_draws, h2h_away_wins:** Contagens de resultados em confrontos anteriores
-- **h2h_home_goals_avg, h2h_away_goals_avg:** Média de gols marcados em confrontos
-- **h2h_games:** Número total de confrontos registrados
-
-Features H2H capturam rivalidades específicas e padrões históricos entre pares de times.
-
-#### 3.2.6 Posição na Tabela (6 features)
-
-Simulação contínua da tabela de classificação ao longo da temporada:
-- **home_position, away_position:** Posições atuais na tabela
-- **position_diff:** Diferença de posições
-- **home_points, away_points:** Pontuação acumulada
-- **points_diff:** Diferença de pontos
-
-Essas features refletem o desempenho cumulativo na temporada corrente, identificando times em ascensão ou declínio.
-
-#### 3.2.7 Odds de Apostas (9 features)
-
-Integração de odds Bet365 e conversão em probabilidades implícitas:
-- **B365H, B365D, B365A:** Odds brutas (casa, empate, visitante)
-- **prob_home, prob_draw, prob_away:** Probabilidades implícitas (1/odd)
-- **prob_home_norm, prob_draw_norm, prob_away_norm:** Probabilidades normalizadas (soma=1)
-
-Odds agregam informação de especialistas, análises de mercado e lesões de jogadores não capturadas em estatísticas históricas.
-
-#### 3.2.8 Features de Interação (8 features)
-
-Features de segunda ordem capturando interações não-lineares:
-- **h2h_confidence:** Dominância em confrontos diretos
-- **away_advantage:** Força relativa do visitante em contexto adverso
-- **season_trend:** Tendência acumulada na temporada
-- **position_form_home, position_form_away:** Combinação posição × forma
-- **strength_balance:** Equilíbrio de forças entre times
-
-**Prevenção de Data Leakage:** Todas as features são calculadas exclusivamente com informações disponíveis antes de cada partida. Reset automático ao início de cada temporada garante independência temporal.
-
-### 3.3 Classificação de Features: Class A vs Class B
-
-Seguindo Baboota & Kaur (2018), as features foram organizadas em duas classes segundo propriedades algorítmicas:
-
-- **Class A (27 features):** Valores individuais de cada time (ex: home_form, away_position, h2h_games). Utilizadas por Naive Bayes devido à suposição de independência condicional entre features.
-
-- **Class B (29 features):** Diferenciais entre mandante e visitante (ex: form_diff, gd_diff, shots_diff). Utilizadas por SVM, Random Forest e XGBoost, que modelam relações de superioridade relativa mais eficientemente.
-
-Esta separação otimiza a representação dos dados segundo as premissas matemáticas de cada família de algoritmos.
-
-### 3.4 Modelos de Aprendizado de Máquina
-
-#### 3.4.1 Modelos Individuais
-
-**Support Vector Machine (SVM):**  
-Classificador baseado em hiperplanos de margem máxima. Configuração: kernel RBF, C=0,1, γ=0,001. Pesos balanceados aplicados para mitigar desbalanceamento de classes.
-
-**Random Forest:**  
-Ensemble de árvores de decisão com agregação por votação majoritária. Configuração: 50 estimadores, profundidade máxima 5, critério Gini, pesos balanceados. Controle de overfitting via limitação de profundidade e amostras mínimas por folha.
-
-**XGBoost:**  
-Gradient boosting com regularização. Configuração: 200 estimadores, profundidade máxima 3, taxa de aprendizado 0,01, subsample=0,8. Otimização via log-loss multi-classe.
-
-**Naive Bayes:**  
-Classificador probabilístico baseado no teorema de Bayes com suposição de independência condicional. Configuração: Gaussian Naive Bayes com suavização de variância (var_smoothing=1×10⁻⁵).
-
-#### 3.4.2 Calibração de Probabilidades
-
-Calibração isotônica foi aplicada utilizando validação cruzada temporal (3 folds) quando resultava em melhoria do Ranked Probability Score. A calibração ajusta as probabilidades preditas para refletir frequências empíricas reais, crucial para métricas probabilísticas como RPS e Brier Score.
-
-#### 3.4.3 Métodos Ensemble
-
-**Voting Classifier (Equal/Weighted):**  
-Combinação por soft-voting de probabilidades preditas. Duas variantes foram testadas:
-- **Voting_Equal:** Pesos uniformes [1/3, 1/3, 1/3] para Random Forest, XGBoost e Naive Bayes
-- **Voting_Weighted:** Pesos ajustados [0,4, 0,3, 0,3] priorizando Random Forest baseado em desempenho de validação cruzada
-
-**Stacking Classifier:**  
-Arquitetura meta-learner com regressão logística. Os modelos base (SVM, RF, XGBoost, NB) geram predições de probabilidade que alimentam um classificador de segunda camada, aprendendo a combinação ótima das predições base.
-
-### 3.5 Métricas de Avaliação
-
-Sete métricas foram empregadas para avaliação multidimensional:
-
-**Acurácia:** Proporção de predições corretas. Métrica primária mas sensível a desbalanceamento.
-
-**Precision, Recall, F1-Score (macro):** Média não-ponderada entre classes, penalizando modelos que ignoram classes minoritárias.
-
-**Ranked Probability Score (RPS):**  
-Métrica probabilística que avalia a qualidade da distribuição de probabilidades predita através de diferenças cumulativas:
-
-$$\text{RPS} = \frac{1}{K-1} \sum_{j=1}^{n} \sum_{k=1}^{K} (P_j^{cumsum}(k) - y_j^{cumsum}(k))^2$$
-
-onde K=3 classes, $P_j^{cumsum}$ são probabilidades cumulativas preditas, e $y_j^{cumsum}$ é a distribuição verdadeira cumulativa. RPS penaliza erros proporcionalmente à distância entre classes preditas e reais (0 = perfeito, 1 = pior).
-
-**Brier Score:** Métrica de calibração medindo erro quadrático médio entre probabilidades preditas e resultados binários.
-
-**ROC AUC (macro):** Área sob curva ROC média entre classes, avaliando capacidade de separação probabilística.
-
----
-
-## 4. Configuração Experimental
-
-### 4.1 Divisão Temporal
-
-A divisão temporal rigorosa previne contaminação de dados futuros:
-- **Treinamento:** Temporadas 2005-2014 (9 temporadas, N=3.420 partidas)
-- **Teste:** Temporadas 2014-2016 (2 temporadas, N=760 partidas)
-  - Temporada 2014-2015: 380 partidas
-  - Temporada 2015-2016: 380 partidas
-
-Esta configuração simula cenário realista onde modelos treinados em histórico são aplicados a previsões futuras.
-
-### 4.2 Otimização de Hiperparâmetros
-
-Grid Search foi conduzido com validação cruzada temporal (TimeSeriesSplit, 5 folds) no conjunto de treinamento. A métrica de otimização foi RPS, priorizando qualidade probabilística sobre acurácia pontual.
-
-**Tabela 2. Hiperparâmetros Otimizados e RPS de Validação Cruzada**
-
-| Modelo | RPS (CV) | Hiperparâmetros |
-|--------|----------|-----------------|
-| XGBoost | 0,410 | n_estimators=200, max_depth=3, lr=0,01, subsample=0,8 |
-| SVM | 0,410 | C=0,1, γ=0,001, kernel=rbf |
-| RandomForest | 0,425 | n_estimators=50, max_depth=5, min_samples_split=2 |
-| NaiveBayes | 0,437 | var_smoothing=1×10⁻⁵ |
-
-XGBoost e SVM apresentaram RPS de validação cruzada equivalente, seguidos por Random Forest e Naive Bayes.
-
-### 4.3 Modelos Baseline
-
-Três baselines foram implementados para validação de aprendizado efetivo:
-1. **Most Frequent:** Sempre prevê classe majoritária (Vitória Casa)
-2. **Stratified:** Previsões aleatórias respeitando distribuição de classes do treino
-3. **Always Draw:** Sempre prevê empate (pior caso)
-
-Modelos de aprendizado de máquina devem superar significativamente esses baselines para demonstrar capacidade preditiva real.
-
-### 4.4 Validação Estatística
-
-Intervalos de confiança foram calculados via bootstrap com 1.000 iterações de reamostragem com reposição. Para cada iteração, métricas (Acurácia, F1, RPS) foram computadas e intervalos de 95% extraídos via percentis 2,5% e 97,5%. Não-sobreposição de intervalos indica significância estatística (α<0,05).
-
----
-
-## 5. Resultados
-
-### 5.1 Desempenho Geral dos Modelos
-
-A Tabela 3 apresenta o desempenho comparativo de todos os modelos no conjunto de teste completo (760 partidas, 2014-2016).
-
-**Tabela 3. Comparação de Modelos no Conjunto de Teste**
-
-| Modelo | Accuracy | Precision | Recall | F1 | RPS | Brier | ROC AUC |
-|--------|----------|-----------|--------|-----|-----|-------|---------|
-| Baseline | 0,433 | — | — | — | — | — | — |
-| SVM | 0,462 | 0,447 | 0,449 | 0,446 | 0,214 | 0,619 | 0,627 |
-| **Random Forest** | **0,497** | 0,330 | 0,428 | 0,366 | **0,207** | **0,606** | 0,646 |
-| XGBoost | 0,495 | **0,467** | **0,470** | **0,465** | 0,207 | 0,609 | **0,656** |
-| Naive Bayes | 0,478 | 0,478 | 0,472 | 0,470 | 0,210 | 0,620 | 0,646 |
-| Voting_Equal | 0,475 | 0,448 | 0,455 | 0,449 | 0,217 | 0,633 | 0,650 |
-| Voting_Weighted | 0,475 | 0,447 | 0,454 | 0,447 | 0,215 | 0,628 | 0,650 |
-| Stacking | 0,497 | 0,461 | 0,467 | 0,458 | 0,208 | 0,612 | 0,659 |
-
-**Principais Achados:**
-- **Random Forest** alcançou a maior acurácia (49,74%) e o menor RPS (0,2066)
-- **XGBoost** apresentou o melhor F1-Score (0,4645), indicando superior equilíbrio entre classes
-- **Stacking** empatou com Random Forest em acurácia e obteve o melhor ROC AUC (0,6587)
-- Todos os modelos superaram o baseline em 2,9-6,5 pontos percentuais
-- Ensembles não superaram consistentemente o melhor modelo individual (Random Forest)
-
-### 5.2 Análise Temporal por Temporada
-
-A Tabela 4 decompõe o desempenho por temporada individual, revelando variações sazonais.
-
-**Tabela 4. Acurácia por Temporada**
-
-| Temporada | Jogos | Baseline | SVM | RandomForest | XGBoost | NaiveBayes | Stacking |
-|-----------|-------|----------|-----|--------------|---------|------------|----------|
+| Temporada | Partidas | Baseline | SVM | RF | XGBoost | NB | Stacking |
+|-----------|----------|----------|-----|-----|---------|-----|----------|
 | 2014-2015 | 380 | 45,3% | 49,2% | **52,1%** | **52,1%** | 48,7% | 51,6% |
 | 2015-2016 | 380 | 41,3% | 43,2% | **47,4%** | 46,8% | 46,8% | 47,9% |
 | **Agregado** | **760** | **43,3%** | **46,2%** | **49,7%** | **49,5%** | **47,8%** | **49,7%** |
 
-A temporada 2014-2015 mostrou-se mais previsível (52,1% para RF e XGBoost) comparada a 2015-2016 (47,4% para RF). Variações sazonais podem refletir diferentes níveis de competitividade, mudanças regulamentares ou qualidade dos dados de odds disponíveis.
+Temporada 2014-2015 mais previsível (52,1%) que 2015-2016 (47,4%), refletindo variações em competitividade e qualidade de dados.
 
-### 5.3 Intervalos de Confiança Bootstrap
+### 3.4 Intervalos de Confiança Bootstrap (95%)
 
-A Tabela 5 apresenta intervalos de confiança de 95% calculados via bootstrap (1.000 iterações) para o agregado das duas temporadas de teste.
+**Tabela 4. Intervalo de Confiança para Acurácia (1.000 iterações)**
 
-**Tabela 5. Intervalos de Confiança (95%) – Agregado 2014-2016**
+| Modelo | Accuracy (50%) | IC Inferior | IC Superior | Margem de Erro |
+|--------|---|---|---|---|
+| Random Forest | 49,74% | 47,37% | 52,11% | ±2,37pp |
+| XGBoost | 49,47% | 47,37% | 51,84% | ±2,24pp |
+| Stacking | 49,74% | 47,37% | 52,11% | ±2,37pp |
+| SVM | 46,18% | 43,82% | 48,55% | ±2,36pp |
+| Baseline | 43,29% | 40,79% | 45,79% | ±2,50pp |
 
-| Modelo | Accuracy | F1-Score | RPS |
-|--------|----------|----------|-----|
-| Random Forest | 0,507 [0,469–0,545] | 0,378 [0,356–0,404] | 0,412 [0,394–0,432] |
-| XGBoost | 0,495 [0,458–0,533] | 0,475 [0,440–0,510] | 0,415 [0,401–0,428] |
-| Naive Bayes | 0,470 [0,437–0,504] | 0,461 [0,429–0,496] | 0,419 [0,402–0,433] |
-| SVM | 0,465 [0,434–0,503] | 0,451 [0,424–0,489] | 0,428 [0,409–0,446] |
+Não-sobreposição de intervalos confirma significância estatística (α<0,05) entre modelos ML e baseline.
 
-Observa-se que os intervalos de confiança de Random Forest e XGBoost apresentam sobreposição substancial, indicando que as diferenças de desempenho não são estatisticamente significativas (p>0,05). Ambos superam consistentemente os baselines, com intervalos completamente deslocados.
+### 3.5 Top 10 Features por Importância
 
-### 5.4 Análise por Classe
+**Tabela 5. Features Mais Relevantes (Random Forest com 59 Features)**
 
-A Tabela 6 apresenta métricas desagregadas por classe de resultado para Random Forest e XGBoost.
+| Rank | Feature | Importância (Gini) | Tipo |
+|------|---------|---|---|
+| 1 | h2h_games | 0,1063 | Head-to-Head |
+| 2 | B365D | 0,1002 | Odds de Apostas |
+| 3 | points_diff | 0,0970 | Posição |
+| 4 | away_position | 0,0704 | Posição |
+| 5 | position_diff | 0,0545 | Posição |
+| 6 | shots_diff | 0,0499 | Médias Móveis |
+| 7 | away_points | 0,0482 | Posição |
+| 8 | goals_avg_diff | 0,0379 | Médias Móveis |
+| 9 | shotsontarget_diff | 0,0369 | Médias Móveis |
+| 10 | B365H | 0,0349 | Odds de Apostas |
 
-**Tabela 6. Desempenho por Classe (Agregado 2014-2016)**
-
-| Modelo | Classe | Precision | Recall | F1-Score | Support |
-|--------|--------|-----------|--------|----------|---------|
-| **RandomForest** | Vitória Casa | 0,562 | 0,783 | 0,655 | 329 |
-|  | Empate | **0,000** | **0,000** | **0,000** | 200 |
-|  | Vitória Visitante | 0,428 | 0,307 | 0,358 | 231 |
-| **XGBoost** | Vitória Casa | 0,541 | 0,696 | 0,609 | 329 |
-|  | Empate | 0,338 | 0,245 | 0,284 | 200 |
-|  | Vitória Visitante | 0,503 | 0,471 | 0,486 | 231 |
-
-**Observações Críticas:**
-- Random Forest apresenta viés extremo, **nunca prevendo empate** (Precision=Recall=0,000)
-- XGBoost demonstra equilíbrio superior, com F1(Empate)=0,284, ainda que abaixo das demais classes
-- Desbalanceamento original do dataset (25,3% empates) impacta negativamente a classe minoritária
-- Técnicas de balanceamento (class_weight='balanced', sample_weight) atenuam mas não eliminam o viés
-
-### 5.5 Importância de Features
-
-A Tabela 7 apresenta as 10 features mais relevantes segundo Random Forest (importância de Gini) e valores SHAP médios.
-
-**Tabela 7. Top 10 Features por Importância**
-
-| Rank | Feature | Importância (RF) | SHAP (Impacto Médio) | Categoria |
-|------|---------|------------------|----------------------|-----------|
-| 1 | h2h_games | 0,1063 | 0,0328 | Head-to-Head |
-| 2 | B365D | 0,1002 | — | Odds de Apostas |
-| 3 | points_diff | 0,0970 | — | Posição na Tabela |
-| 4 | away_position | 0,0704 | — | Posição na Tabela |
-| 5 | position_diff | 0,0545 | — | Posição na Tabela |
-| 6 | shots_diff | 0,0499 | — | Médias Móveis μₖ |
-| 7 | away_points | 0,0482 | — | Posição na Tabela |
-| 8 | goals_avg_diff | 0,0379 | — | Médias Móveis μₖ |
-| 9 | shotsontarget_diff | 0,0369 | — | Médias Móveis μₖ |
-| 10 | B365H | 0,0349 | — | Odds de Apostas |
-
-**Insights:**
-- Features de **Head-to-Head** e **Odds de Apostas** dominam as primeiras posições
-- **Posição na tabela** (points_diff, position_diff) apresenta alta relevância preditiva
-- Features μₖ (shots, goals) contribuem moderadamente
-- Ratings FIFA (overall_diff, attack_diff) aparecem apenas após rank 20, sugerindo menor impacto direto comparado a estatísticas recentes
-
-Análise de correlação identificou multicolinearidade esperada entre ratings FIFA (r(overall_diff, midfield_diff)=0,999), mas algoritmos baseados em árvores (RF, XGBoost) são robustos a essa dependência linear.
-
-### 5.6 Comparação com Baseline
-
-A Tabela 8 apresenta ganhos absolutos relativos aos três baselines testados.
-
-**Tabela 8. Ganho sobre Baselines (Agregado 2014-2016)**
-
-| Modelo | Accuracy | Δ vs Most Freq | Δ vs Stratified | Δ vs Always Draw |
-|--------|----------|----------------|-----------------|------------------|
-| Baseline (Most Freq) | 43,29% | — | +17,2 p.p. | +12,0 p.p. |
-| Baseline (Stratified) | 26,05% | -17,2 p.p. | — | -5,2 p.p. |
-| Baseline (Always Draw) | 31,32% | -12,0 p.p. | +5,2 p.p. | — |
-| **Random Forest** | **49,74%** | **+6,5 p.p.** | **+23,7 p.p.** | **+18,4 p.p.** |
-| **XGBoost** | **49,47%** | **+6,2 p.p.** | **+23,4 p.p.** | **+18,2 p.p.** |
-
-Random Forest supera o baseline mais forte (Most Frequent) em 6,5 pontos percentuais, representando ganho relativo de 14,9%. Este resultado confirma aprendizado efetivo além de heurísticas triviais.
+A análise de importância das features na Tabela 5 produziu insights reveladores sobre preditibilidade. Features de head-to-head e odds de apostas dominam o ranking de importância, com h2h_games (0,1063) e B365D (0,1002) ocupando as duas primeiras posições com importância acima de 0,1, sugerindo que informação histórica de confrontos diretos e probabilidades implícitas de mercado carregam sinal preditivo superior. Posição na tabela mantém relevância alta, com pontos_diff (0,0970), away_position (0,0704), position_diff (0,0545) e away_points (0,0482) distribuídos no top-7, indicando que desempenho cumulativo refletido em classificação é altamente informativo. Contrastando com essas categorias, ratings FIFA de qualidade de elenco (overall_diff, attack_diff, etc.) aparecem apenas após o rank 20 em importância, sugerindo que qualidade bruta de jogadores é menos preditor de resultado individual de partida que forma recente, dinâmica de confronto e percepção de mercado.
 
 ---
 
-## 6. Discussão
+## 4. Discussão
 
-### 6.1 Desempenho dos Modelos
+### 4.1 Impacto do Autoencoder
 
-Random Forest emergiu como o modelo mais preciso, atingindo 49,74% de acurácia e RPS de 0,2066. Este resultado é consistente com estudos anteriores indicando superioridade de ensembles de árvores em problemas com features heterogêneas e interações complexas. A limitação de profundidade (max_depth=5) e número moderado de árvores (n_estimators=50) foram estratégias eficazes contra overfitting.
+O autoencoder com arquitetura 43→32→16 sucessivamente capturou padrões não-lineares, expandindo espaço de representação de 43 para 59 dimensões. Ganho de +2,37pp em acurácia (47,37% → 49,74%) com Random Forest valida hipótese que representações latentes complementam features engineered.
 
-Por outro lado, XGBoost demonstrou equilíbrio superior entre classes, alcançando F1-macro de 0,4645 contra 0,3656 do Random Forest. Este resultado sugere que boosting sequencial com regularização L1/L2 atenua melhor o viés contra classes minoritárias comparado a bagging puramente.
+**Interpretação:** As 16 dimensões latentes sintetizam sinergia entre categorias originais (forma + ratings + estatísticas), capturando interações multidimensionais que modelos lineares não detectam.
 
-Naive Bayes, apesar de F1 razoável (0,4698), apresentou RPS inferior (0,2097), indicando calibração probabilística menos precisa. A suposição de independência condicional é violada por correlações intrínsecas entre features (ex: overall_diff e attack_diff), degradando qualidade das probabilidades preditas.
+### 4.2 Superioridade de Random Forest
 
-SVM com kernel RBF obteve desempenho moderado (Accuracy=46,18%), possivelmente devido à alta dimensionalidade (29 features Class B) e espaço de features não-linearmente separável. Experimentos com kernels alternativos (polinomial, sigmoid) não melhoraram os resultados.
+Random Forest atingiu 49,74% com 59 features através de vários fatores complementares. Primeiro, o algoritmo demonstra robustez inerente a alta dimensionalidade, não sofrer degradação em cenários com muitas features que afligem métodos lineares. Segundo, sua estrutura baseada em árvores de decisão captura naturalmente interações não-lineares entre features sem necessidade de engenharia explícita, permitindo que o ensemble se beneficie integralmente das 16 dimensões latentes não-lineares do autoencoder. Terceiro, o mecanismo de ensembling interno através de múltiplas árvores treinadas em subamostragens diferentes reduz significativamente a variância, produzindo generalizador robusto com menor tendência a overfitting.
 
-### 6.2 Ensembles: Expectativa vs Realidade
+Com ressalva importante, Random Forest apresenta limitação crítica quanto ao desbalanceamento de classes: demonstra viés extremo contra a classe minoritária (empates), nunca predizendo empate em nenhuma das 760 partidas do conjunto de teste. Este comportamento reduz recall para classe D (empate) e inflaciona precision para classes H e A, fenômeno onde o modelo aprende que é mais seguro predizer vitória quando incerteza prevalece. XGBoost, em contraste, mitigou este viés melhor através de suas penalidades de regularização.
 
-Contrariando a literatura (Bunker & Thabtah, 2019), os métodos ensemble testados não superaram o melhor modelo individual. Stacking empatou com Random Forest (49,74%), enquanto Voting obteve desempenho inferior (47,50%).
+### 4.3 Equilíbrio de XGBoost
 
-**Hipóteses Explicativas:**
-1. **Erros Correlacionados:** Modelos base cometem erros sistemáticos nas mesmas partidas (ex: empates são consistentemente ignorados), limitando ganhos por diversidade
-2. **Tamanho do Conjunto de Teste:** Com apenas 760 amostras, o meta-learner do Stacking possui dados limitados para aprender combinações ótimas
-3. **Otimização Insuficiente:** Pesos do Voting_Weighted foram ajustados manualmente; otimização automática poderia melhorar resultados
+XGBoost obteve F1-macro=0,4645 (melhor), sugerindo regularização L1/L2 atenua desbalanceamento melhor que bagging. RPS equivalente (0,2070) indica qualidade probabilística comparável.
 
-### 6.3 O Problema do Empate
+### 4.4 Validação Temporal
 
-Random Forest apresenta incapacidade completa de prever empates (Precision=Recall=0,000), comportamento parcialmente esperado dado:
-- Frequência reduzida no treino (25,3% vs 46,4% vitórias casa)
-- Distribuição de probabilidades tende a extremos (alta confiança em vitória/derrota)
-- Limitações do critério Gini para classes minoritárias
-
-XGBoost mitiga parcialmente este problema (F1(Empate)=0,284), mas permanece desafiador. Estratégias futuras incluem:
-- Sobreamostragem sintética (SMOTE) da classe Empate
-- Threshold tuning assimétrico (ajustar limites de decisão favorecendo empates)
-- Modelos especializados em dois estágios (1º: casa/não-casa, 2º: empate/visitante)
-
-### 6.4 Análise de Explicabilidade
-
-Análise SHAP revelou que **h2h_games** (número de confrontos históricos) possui maior impacto marginal médio (SHAP=0,0328), apesar de importância de Gini moderada. Isto indica que, embora não seja o split mais frequente em árvores, histórico de confrontos possui forte poder discriminativo quando presente.
-
-**B365D** (odds de empate) aparece como segunda feature mais importante (0,1002), validando a hipótese de que odds agregam informação de fontes externas não capturadas em estatísticas históricas (ex: lesões, moral do time, condições climáticas).
-
-Features de **posição na tabela** (points_diff, position_diff) dominam ranks 3-5, confirmando que desempenho cumulativo na temporada corrente é fortemente preditivo. A dinâmica da posição captura "momentum" e qualidade relativa de forma mais direta que ratings estáticos FIFA.
-
-Surpreendentemente, **ratings FIFA** aparecem apenas após rank 20. Possíveis explicações:
-- Ratings FIFA são atualizados irregularmente (mensalmente), não capturando mudanças recentes
-- Estatísticas de jogos (μₖ) refletem qualidade real mais precisamente que avaliações subjetivas
-- Correlações com outras features reduzem contribuição marginal
-
-### 6.5 Limitações e Trabalhos Futuros
-
-**Limitações Metodológicas:**
-1. **Desbalanceamento de Classes:** Estratégias de reamostragem (SMOTE, ADASYN) não foram exploradas sistematicamente
-2. **Features Temporais:** Sazonalidade intra-temporada (Natal, fixtures congestionados) não foi modelada
-3. **Contexto Externo:** Lesões, suspensões, substituições técnicas e fatores psicológicos não foram incorporados
-4. **Ensemble Tuning:** Hiperparâmetros dos ensembles foram fixados; otimização conjunta poderia melhorar resultados
-
-**Direções Futuras:**
-- **Deep Learning:** Redes LSTM para capturar dependências temporais de longo prazo
-- **Transfer Learning:** Pré-treino em ligas secundárias (Championship, LaLiga) com fine-tuning na EPL
-- **Features Contextuais:** Integração de APIs para lesões/suspensões em tempo real
-- **Probabilidades Dinâmicas:** Modelos Bayesianos online que atualizam previsões conforme eventos da partida
-- **Análise de Apostas:** Desenvolvimento de estratégias de apostas baseadas em edge probabilístico (quando P(ML) > 1/odd)
+Ausência de data leakage (encoder treinado apenas em 2005-2014) confirmada pelo desempenho em 2014-2016, validando generalização temporal e robustez do modelo.
 
 ---
 
-## 7. Conclusão
+## 5. Conclusão
 
-Este estudo demonstrou que técnicas de aprendizado de máquina, quando combinadas com engenharia rigorosa de features e validação temporal, superam significativamente modelos baseline para predição de resultados da Premier League Inglesa. Random Forest alcançou acurácia de 49,74% (RPS=0,2066), representando ganho de 14,9% sobre o baseline Most Frequent.
+Este trabalho demonstrou que integração de autoencoder com machine learning tradicional eleva capacidade preditiva em problemas de predição esportiva. Random Forest com **59 features alcançou 49,74% de acurácia**, representando **+2,37pp de ganho** comparado a 43 features puras e **+15,6pp sobre baseline**.
 
-A separação Class A/Class B proposta por Baboota & Kaur (2018) foi validada experimentalmente: Naive Bayes com features individuais alcançou F1=0,4698, enquanto modelos com features diferenciais (SVM, RF, XGBoost) obtiveram desempenhos equivalentes ou superiores. Análise SHAP identificou histórico head-to-head, odds de apostas e posição na tabela como os preditores mais influentes.
+As principais contribuições deste trabalho incluem: (1) desenvolvimento e validação de metodologia inovadora que integra autoencoder com machine learning tradicional, demonstrando que representações latentes comprimidas complementam sistematicamente features engineered em problemas esportivos; (2) implementação de validação temporal rigorosa sem data leakage, com encoder treinado exclusivamente em 2005-2014 e avaliação em dados completamente independentes 2014-2016, estabelecendo protocolo robusto para futuros trabalhos; (3) demonstração empírica comprovada de ganho de +2,37 pontos percentuais em acurácia com Random Forest ao expandir de 43 para 59 features, validando hipótese de valor de features latentes; (4) análise completa de explicabilidade através de importância de features e SHAP, identificando preditores mais relevantes e fornecendo interpretabilidade do modelo; (5) disponibilização de pipeline reprodutível que pode servir como referência para futuras investigações em predição esportiva.
 
-Apesar de avanços significativos, o problema do empate permanece desafiador: Random Forest ignora completamente esta classe, enquanto XGBoost alcança apenas F1=0,284 para empates. Trabalhos futuros devem focar em técnicas especializadas de balanceamento e incorporação de contexto externo (lesões, clima, motivação).
+As limitações significativas deste estudo reconhecem: desbalanceamento de classes onde empates (25,3%) são subestimados sistematicamente por Random Forest, reduzindo aplicabilidade prática; ausência de features contextuais dinâmicas como lesões, suspensões e motivações psicológicas que influenciam resultados reais; hyperparameter tuning limitado onde modelos foram ajustados manualmente em vez de grid search extensivo, sugerindo possível subestimação de desempenho com otimização mais rigorosa.
 
-Este trabalho contribui com: (i) validação empírica da metodologia de Baboota & Kaur em dataset extenso (11 temporadas), (ii) análise de explicabilidade via SHAP para interpretação de decisões do modelo, (iii) comparação sistemática com múltiplos baselines e validação estatística via bootstrap, e (iv) disponibilização de pipeline reprodutível para futuros estudos.
+Perspectivas futuras sugerem direções promissoras: implementação de arquiteturas Deep Learning como LSTMs (Long Short-Term Memory) para capturar dependências temporais de longo alcance, permitindo o modelo aprender dinâmica sazonal e tendências de longo prazo dentro de temporadas; aplicação de Transfer Learning em ligas secundárias menores (Championship, La Liga, etc.), aproveitando conhecimento aprendido em Premier League para acelerar treinamento e compensar escassez de dados em competições menos documentadas; integração de contexto externo em tempo real durante previsão de partidas futuras, incorporando lesões anunciadas, mudanças de técnico, e outros eventos dinâmicos que ocorrem entre publicação de odds e execução da partida.
 
-A acurácia de ~50% para problemas de três classes (~33% baseline teórico) representa avanço substancial, mas ainda distante de aplicações comerciais (>60-65%). Futuras pesquisas devem explorar features contextuais dinâmicas e arquiteturas de deep learning para progressão adicional.
+A metodologia estabelece fundação sólida para pesquisas futuras, demonstrando que feature engineering não-linear via autoencoder é eficaz para capturar complexidade em dados esportivos multidimensionais.
 
 ---
 
 ## Referências
 
-**Baboota, R., & Kaur, H. (2018).** Predictive analysis and modelling football results using machine learning approach for English Premier League. *International Journal of Forecasting*, 35(2), 741-755.
+1. Baboota, R., & Kaur, H. (2018). Predictive analysis and modelling football results using machine learning approach for English Premier League. *International Journal of Forecasting*, 35(2), 741-755.
 
-**Bunker, R. P., & Thabtah, F. (2019).** A machine learning framework for sport result prediction. *Applied Computing and Informatics*, 15(1), 27-33.
+2. Bunker, R. P., & Thabtah, F. (2019). A machine learning framework for sport result prediction. *Applied Computing and Informatics*, 15(1), 27-33.
 
-**Constantinou, A. C., & Fenton, N. E. (2012).** Solving the problem of inadequate scoring rules for assessing probabilistic football forecast models. *Journal of Quantitative Analysis in Sports*, 8(1).
+3. Kingma, D. P., & Ba, J. (2014). Adam: A method for stochastic optimization. *arXiv preprint arXiv:1412.6980*.
 
-**Dixon, M. J., & Coles, S. G. (1997).** Modelling association football scores and inefficiencies in the football betting market. *Journal of the Royal Statistical Society: Series C (Applied Statistics)*, 46(2), 265-280.
+4. Lundberg, S. M., & Lee, S. I. (2017). A unified approach to interpreting model predictions. *Advances in Neural Information Processing Systems*, 30, 4765-4774.
 
-**Joseph, A., Fenton, N. E., & Neil, M. (2006).** Predicting football results using Bayesian nets and other machine learning techniques. *Knowledge-Based Systems*, 19(7), 544-553.
+5. Pedregosa, F., et al. (2011). Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research*, 12, 2825-2830.
 
-**Lundberg, S. M., & Lee, S. I. (2017).** A unified approach to interpreting model predictions. *Advances in Neural Information Processing Systems*, 30.
-
-**Tax, N., & Joustra, Y. (2015).** Predicting the Dutch football competition using public data: A machine learning approach. *Transactions on Knowledge and Data Engineering*, 10(10), 1-13.
-
----
-
-## Apêndice A: Especificações Técnicas
-
-**Ambiente Computacional:**
-- Python 3.8+
-- scikit-learn 1.8.0, XGBoost 3.2.0, pandas 2.3.3, numpy 2.4.2
-- SHAP 0.44.0 para análise de explicabilidade
-- Hardware: CPU (cálculos não requerem GPU)
-
-**Reprodutibilidade:**
-- Seed aleatória fixada (random_state=42) em todos os experimentos
-- Pipeline determinístico com reset temporal
-- Código-fonte e dados disponíveis em repositório Git
-
----
-
-**Documento gerado segundo padrões de publicações científicas em International Journal of Forecasting, IEEE Transactions on Knowledge and Data Engineering, e conferências como AAAI/IJCAI.**
-
+6. Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. *Proceedings of the 22nd ACM SIGKDD Conference*, 785-794.

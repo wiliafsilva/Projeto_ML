@@ -5,6 +5,14 @@ Este script atualiza a temporada 'All' no baseline_comparison.csv
 com os valores recém-calculados da tabela3_comparacao_modelos.csv.
 """
 
+import sys
+import io
+
+# Forçar UTF-8 no Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 import pandas as pd
 import os
 

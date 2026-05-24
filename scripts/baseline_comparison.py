@@ -13,6 +13,13 @@ Data: 10 de março de 2026
 
 import sys
 import os
+
+# Forçar UTF-8 no Windows para evitar erros de caractere grego
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd

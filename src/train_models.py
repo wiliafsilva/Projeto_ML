@@ -56,7 +56,12 @@ def prepare_features_by_model(df, model_name):
         # Odds (não são diferenciais, mas são usadas por todos)
         'B365H', 'B365D', 'B365A',
         'prob_home', 'prob_draw', 'prob_away',
-        'prob_home_norm', 'prob_draw_norm', 'prob_away_norm'
+        'prob_home_norm', 'prob_draw_norm', 'prob_away_norm',
+        # [NOVO] Latent features do Encoder (16 dims) — incluídas se disponíveis
+        'latent_0', 'latent_1', 'latent_2', 'latent_3',
+        'latent_4', 'latent_5', 'latent_6', 'latent_7',
+        'latent_8', 'latent_9', 'latent_10', 'latent_11',
+        'latent_12', 'latent_13', 'latent_14', 'latent_15',
     ]
     
     # Features Class A (valores individuais) - usadas por Naive Bayes
@@ -75,7 +80,12 @@ def prepare_features_by_model(df, model_name):
         # Odds (usadas por todos)
         'B365H', 'B365D', 'B365A',
         'prob_home', 'prob_draw', 'prob_away',
-        'prob_home_norm', 'prob_draw_norm', 'prob_away_norm'
+        'prob_home_norm', 'prob_draw_norm', 'prob_away_norm',
+        # [NOVO] Latent features do Encoder (16 dims) — incluídas se disponíveis
+        'latent_0', 'latent_1', 'latent_2', 'latent_3',
+        'latent_4', 'latent_5', 'latent_6', 'latent_7',
+        'latent_8', 'latent_9', 'latent_10', 'latent_11',
+        'latent_12', 'latent_13', 'latent_14', 'latent_15',
     ]
     
     # Selecionar features de acordo com o modelo
