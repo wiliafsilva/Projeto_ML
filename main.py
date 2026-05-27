@@ -1,6 +1,7 @@
 
 import sys
 import os
+import pandas as pd
 
 # Forçar UTF-8 no Windows para evitar erros de caractere Unicode
 if sys.platform == 'win32':
@@ -70,15 +71,20 @@ def main():
     df_train = load_multiple_seasons(train_dir)
     df_test  = load_multiple_seasons(test_dir)
 
+    # Combinar para manter continuidade histórica (Head-to-Head, etc) sem leakage
+    df_all = pd.concat([df_train, df_test], ignore_index=True)
+    df_all = df_all.sort_values('Date').reset_index(drop=True)
+
     # ── ETAPA 2: Engenharia de features ───────────────────────────────────────
     print("\n" + "="*80)
     print("ETAPA 2: ENGENHARIA DE FEATURES")
     print("="*80)
-    print("\nCalculando features para dados de TREINAMENTO...")
-    features_train = calculate_team_stats(df_train, add_latent=False)
+    print("\nCalculando features para TODOS os dados (mantendo ordem cronológica)...")
+    features_all = calculate_team_stats(df_all, add_latent=False)
 
-    print("\nCalculando features para dados de TESTE...")
-    features_test = calculate_team_stats(df_test, add_latent=False)
+    print("\nSeparando features de TREINO e TESTE...")
+    features_train = features_all[features_all['Season'] <= 2014].reset_index(drop=True)
+    features_test = features_all[features_all['Season'] > 2014].reset_index(drop=True)
 
     # ── ETAPA 3: Treinar Encoder (43 → 16 dims) ────────────────────────────────
     print("\n" + "="*80)

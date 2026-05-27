@@ -39,6 +39,8 @@ def prepare_evaluation_data(feature_columns=None):
 
 def evaluate_model(model, X_test, y_test):
     preds = model.predict(X_test)
+    # garantir que predições sejam rótulos inteiros (evita erros em np.bincount)
+    preds = np.asarray(preds).astype(int)
     probs = model.predict_proba(X_test)
 
     cm = confusion_matrix(y_test, preds)

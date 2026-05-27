@@ -158,36 +158,49 @@ def train_models(df_train, df_test):
     # Calcular sample weights para XGBoost e NaiveBayes
     sample_weights = compute_sample_weight('balanced', y_train_full)
 
-    # Modelos com hiperparâmetros otimizados (DIA 5 + DIA 10 validação)
     # DIA 10: Validado com 43 features (Form + μₖ) → XGBoost RPS 0.4115 (melhor do projeto!)
+    
+    # Carregar hiperparâmetros otimizados do GridSearch (se existirem)
+    import os
+    import joblib
+    
+    optimized_params = {}
+    opt_file = 'models/optimized_models.pkl'
+    if os.path.exists(opt_file):
+        try:
+            opt_data = joblib.load(opt_file)
+            print(f"\n[INFO] Lendo hiperparâmetros otimizados de {opt_file}...")
+            for model_name in ["SVM", "RandomForest", "XGBoost", "NaiveBayes"]:
+                if model_name in opt_data:
+                    optimized_params[model_name] = opt_data[model_name].get('params', {})
+                    print(f"  ✓ {model_name}: carregado automaticamente!")
+        except Exception as e:
+            print(f"\n[AVISO] Não foi possível ler {opt_file}: {e}. Usando valores padrão.")
+            
+    # Definir os parâmetros (Otimizados ou Defaults)
+    svm_params = optimized_params.get("SVM", {'C': 0.1, 'gamma': 0.001, 'kernel': 'rbf'})
+    rf_params = optimized_params.get("RandomForest", {'n_estimators': 50, 'max_depth': 5, 'min_samples_split': 2, 'min_samples_leaf': 1})
+    xgb_params = optimized_params.get("XGBoost", {'n_estimators': 200, 'max_depth': 3, 'learning_rate': 0.01, 'subsample': 0.8, 'colsample_bytree': 1.0})
+    nb_params = optimized_params.get("NaiveBayes", {'var_smoothing': 1e-05})
     models = {
         "SVM": SVC(
             probability=True, 
-            kernel='rbf',
-            C=0.1,               # DIA 5: Otimizado via GridSearch
-            gamma=0.001,         # DIA 5: Otimizado via GridSearch
             random_state=42, 
-            class_weight='balanced'
+            class_weight='balanced',
+            **svm_params
         ),
         "RandomForest": RandomForestClassifier(
-            n_estimators=50,          # DIA 5: Otimizado via GridSearch
-            max_depth=5,              # DIA 5: Otimizado via GridSearch
-            min_samples_split=2,      # DIA 5: Otimizado via GridSearch
-            min_samples_leaf=1,       # DIA 5: Otimizado via GridSearch
             random_state=42, 
-            class_weight='balanced'
+            class_weight='balanced',
+            **rf_params
         ),
         "XGBoost": XGBClassifier(
             eval_metric='mlogloss',
-            n_estimators=200,         # DIA 5: Otimizado via GridSearch
-            max_depth=3,              # DIA 5: Otimizado via GridSearch
-            learning_rate=0.01,       # DIA 5: Otimizado via GridSearch
-            subsample=0.8,            # DIA 5: Otimizado via GridSearch
-            colsample_bytree=1.0,     # DIA 5: Otimizado via GridSearch
-            random_state=42
+            random_state=42,
+            **xgb_params
         ),
         "NaiveBayes": GaussianNB(
-            var_smoothing=1e-05       # DIA 5: Otimizado via GridSearch
+            **nb_params
         ),
     }
 
@@ -293,16 +306,10 @@ def train_models(df_train, df_test):
     print(f"{'='*60}")
     print("Estratégia: Média das probabilidades preditas por cada modelo")
     
-    # Criar novos modelos base (não usar os já treinados para evitar problemas)
-    rf_base = RandomForestClassifier(
-        n_estimators=200, max_depth=10, min_samples_split=2, min_samples_leaf=4,
-        random_state=42, class_weight='balanced'
-    )
-    xgb_base = XGBClassifier(
-        eval_metric='mlogloss', n_estimators=50, max_depth=3, learning_rate=0.05,
-        subsample=0.7, colsample_bytree=0.7, random_state=42
-    )
-    nb_base = GaussianNB()
+    # Criar novos modelos base usando os hiperparâmetros dinâmicos
+    rf_base = RandomForestClassifier(random_state=42, class_weight='balanced', **rf_params)
+    xgb_base = XGBClassifier(eval_metric='mlogloss', random_state=42, **xgb_params)
+    nb_base = GaussianNB(**nb_params)
     
     # Ensemble com pesos iguais
     voting_equal = VotingClassifier(
@@ -338,15 +345,9 @@ def train_models(df_train, df_test):
     # Voting com pesos otimizados (RF melhor que outros)
     voting_weighted = VotingClassifier(
         estimators=[
-            ('rf', RandomForestClassifier(
-                n_estimators=200, max_depth=10, min_samples_split=2, min_samples_leaf=4,
-                random_state=42, class_weight='balanced'
-            )),
-            ('xgb', XGBClassifier(
-                eval_metric='mlogloss', n_estimators=50, max_depth=3, learning_rate=0.05,
-                subsample=0.7, colsample_bytree=0.7, random_state=42
-            )),
-            ('nb', GaussianNB())
+            ('rf', RandomForestClassifier(random_state=42, class_weight='balanced', **rf_params)),
+            ('xgb', XGBClassifier(eval_metric='mlogloss', random_state=42, **xgb_params)),
+            ('nb', GaussianNB(**nb_params))
         ],
         voting='soft',
         weights=[0.4, 0.3, 0.3]  # RF recebe mais peso (melhor RPS individual)
@@ -380,15 +381,9 @@ def train_models(df_train, df_test):
     
     stacking_clf = StackingClassifier(
         estimators=[
-            ('rf', RandomForestClassifier(
-                n_estimators=200, max_depth=10, min_samples_split=2, min_samples_leaf=4,
-                random_state=42, class_weight='balanced'
-            )),
-            ('xgb', XGBClassifier(
-                eval_metric='mlogloss', n_estimators=50, max_depth=3, learning_rate=0.05,
-                subsample=0.7, colsample_bytree=0.7, random_state=42
-            )),
-            ('nb', GaussianNB())
+            ('rf', RandomForestClassifier(random_state=42, class_weight='balanced', **rf_params)),
+            ('xgb', XGBClassifier(eval_metric='mlogloss', random_state=42, **xgb_params)),
+            ('nb', GaussianNB(**nb_params))
         ],
         final_estimator=LogisticRegression(
             max_iter=1000,

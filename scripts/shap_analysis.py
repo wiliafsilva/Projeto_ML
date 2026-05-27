@@ -223,8 +223,23 @@ if SHAP_AVAILABLE:
             mean_shap_overall = (mean_shap_home + mean_shap_draw + mean_shap_away) / 3
         else:
             mean_shap_overall = np.abs(shap_values).mean(axis=0)
-        
+
+        # Garantir que mean_shap_overall é ndarray 1-D (evita erros ao indexar com arrays)
+        mean_shap_overall = np.asarray(mean_shap_overall).ravel()
+
+        # Alinhar tamanho de mean_shap_overall com feature_names para evitar index errors
+        n_feat_names = len(feature_names)
+        if mean_shap_overall.size != n_feat_names:
+            print(f"[AVISO] Tamanho de mean_shap_overall ({mean_shap_overall.size}) difere de feature_names ({n_feat_names}). Alinhando pelo menor tamanho.")
+            min_len = min(mean_shap_overall.size, n_feat_names)
+            mean_shap_overall = mean_shap_overall[:min_len]
+            feature_names = feature_names[:min_len]
+            # Recalcular nomes mapeados após possível truncamento
+            mapped_feature_names = [map_feature_name(f) for f in feature_names]
+
         indices = np.argsort(mean_shap_overall)[::-1]
+        # Garantir que indices seja um array de inteiros simples
+        indices = np.asarray(indices, dtype=int).ravel()
         
         print("\n✓ SHAP values calculados!")
         print("\nTop 15 Features por Impacto SHAP (média absoluta):")
@@ -233,13 +248,16 @@ if SHAP_AVAILABLE:
         print("-"*80)
         
         for i, idx in enumerate(indices[:15], 1):
-            display_name = map_feature_name(feature_names[idx])
-            print(f"{i:<6} {display_name:<30} {mean_shap_overall[idx]:<15.4f}")
+            idx_int = int(idx)
+            display_name = map_feature_name(feature_names[idx_int])
+            print(f"{i:<6} {display_name:<30} {mean_shap_overall[idx_int]:<15.4f}")
         
         # Salvar análise SHAP
+        # Assegurar tipos inteiros nos índices antes de usar para indexação de listas/arrays
+        indices_int = np.array(indices, dtype=int)
         shap_df = pd.DataFrame({
-            'Feature': [feature_names[i] for i in indices],
-            'SHAP_Impact': mean_shap_overall[indices]
+            'Feature': [feature_names[int(i)] for i in indices_int],
+            'SHAP_Impact': mean_shap_overall[indices_int]
         })
         shap_df.to_csv('models/shap_importance_randomforest.csv', index=False)
         print("\n✓ Análise SHAP salva em: models/shap_importance_randomforest.csv")
@@ -261,36 +279,79 @@ if SHAP_AVAILABLE:
         plt.close()
         print("  ✓ models/figures/shap_summary_bar.png")
         
-        # 2. Summary plot (beeswarm) - Impacto e direção
-        plt.figure(figsize=(12, 8))
-        shap.summary_plot(shap_values[0] if isinstance(shap_values, list) else shap_values,
-                 X_sample,
-                 feature_names=mapped_feature_names,
-                         show=False,
-                         max_display=15)
-        plt.title('RandomForest - SHAP Impact Distribution (Classe: Home Win)')
-        plt.tight_layout()
-        plt.savefig('models/figures/shap_summary_beeswarm.png', dpi=150, bbox_inches='tight')
-        plt.close()
-        print("  ✓ models/figures/shap_summary_beeswarm.png")
+        # 2. Summary plot (beeswarm) - Versão final otimizada
+        try:
+            import matplotlib.cm as cm
+            from matplotlib.colors import Normalize
+            
+            top_n = 10
+            top_indices_shap = np.argsort(mean_shap_overall)[::-1][:top_n]
+            
+            fig, ax = plt.subplots(figsize=(11, 6), dpi=100)
+            
+            feature_labels = [mapped_feature_names[int(i)] for i in top_indices_shap]
+            y_positions = np.arange(len(feature_labels))
+            
+            for idx_pos, feat_idx in enumerate(top_indices_shap):
+                feat_idx = int(feat_idx)
+                shap_vals = shap_values[0][:, feat_idx] if isinstance(shap_values, list) else shap_values[:, feat_idx]
+                feature_vals = X_sample.iloc[:, feat_idx].values
+                
+                # Garantir que tudo está 1-D e do mesmo tamanho
+                shap_vals = np.asarray(shap_vals).ravel()[:len(X_sample)]
+                feature_vals = np.asarray(feature_vals).ravel()[:len(X_sample)]
+                
+                # Garantir que têm exatamente o mesmo tamanho
+                min_size = min(len(shap_vals), len(feature_vals))
+                shap_vals = shap_vals[:min_size]
+                feature_vals = feature_vals[:min_size]
+                
+                norm = Normalize(vmin=feature_vals.min(), vmax=feature_vals.max())
+                colors = cm.coolwarm(norm(feature_vals))
+                
+                jitter = np.random.normal(0, 0.05, size=min_size)
+                y = np.full(min_size, idx_pos) + jitter
+                
+                ax.scatter(shap_vals, y, c=colors, alpha=0.6, s=25, edgecolors='none')
+            
+            ax.set_yticks(y_positions)
+            ax.set_yticklabels(feature_labels, fontsize=10)
+            ax.set_xlabel('SHAP Value', fontsize=11, fontweight='bold')
+            ax.axvline(x=0, color='black', linestyle='-', linewidth=1.2, alpha=0.7)
+            ax.grid(axis='x', alpha=0.25, linestyle=':')
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.set_title('RandomForest - SHAP Feature Impact (Top 10)', 
+                         fontsize=12, fontweight='bold', pad=15)
+            
+            plt.tight_layout()
+            plt.savefig('models/figures/shap_summary_beeswarm.png', dpi=200, bbox_inches='tight')
+            plt.close()
+            print("  ✓ models/figures/shap_summary_beeswarm.png")
+        except Exception as e:
+            print(f"✗ Erro ao gerar beeswarm: {e}")
         
-        # 3. Waterfall plot para uma predição específica
-        sample_idx = 0  # Primeira amostra
-        plt.figure(figsize=(10, 6))
-        shap.waterfall_plot(
-                shap.Explanation(
-                values=shap_values[0][sample_idx] if isinstance(shap_values, list) else shap_values[sample_idx],
-                base_values=explainer.expected_value[0] if isinstance(explainer.expected_value, np.ndarray) else explainer.expected_value,
-                data=X_sample.iloc[sample_idx],
-                feature_names=mapped_feature_names
-            ),
-            show=False
-        )
-        plt.title('RandomForest - Exemplo de Predição Individual (SHAP Waterfall)')
-        plt.tight_layout()
-        plt.savefig('models/figures/shap_waterfall_example.png', dpi=150, bbox_inches='tight')
-        plt.close()
-        print("  ✓ models/figures/shap_waterfall_example.png")
+        # 3. Gráfico horizontal de top-15 SHAP values (alternativa melhor que waterfall)
+        try:
+            top_n = 15
+            top_indices = indices[:top_n]
+            top_names = [mapped_feature_names[int(i)] for i in top_indices]
+            top_shap = mean_shap_overall[top_indices]
+            
+            plt.figure(figsize=(12, 8))
+            y_pos = np.arange(len(top_names))
+            plt.barh(y_pos, top_shap, color='steelblue')
+            plt.yticks(y_pos, top_names, fontsize=11)
+            plt.xlabel('Mean |SHAP Value|', fontsize=12, fontweight='bold')
+            plt.title('RandomForest - Top 15 Features por Impacto SHAP\n(Classe: Home Win)', fontsize=13, fontweight='bold')
+            plt.grid(axis='x', alpha=0.3)
+            plt.tight_layout()
+            plt.savefig('models/figures/shap_waterfall_example.png', dpi=200, bbox_inches='tight')
+            plt.close()
+            print("  ✓ models/figures/shap_waterfall_example.png (top-15 bar chart)")
+        except Exception as e:
+            print(f"✗ Erro ao gerar gráfico SHAP: {e}")
         
         print("\n" + "="*80)
         print("✓ Análise SHAP completa!")

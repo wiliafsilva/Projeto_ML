@@ -83,8 +83,10 @@ def calculate_form_feature(df, gamma=0.33):
             form_dict[home] = form_dict[home] - gamma * form_dict[home]
         
         else:  # Empate (result == 1)
-            form_dict[home] = form_dict[home] - gamma * (form_dict[home] - form_dict[away])
-            form_dict[away] = form_dict[away] - gamma * (form_dict[away] - form_dict[home])
+            new_home_form = form_dict[home] - gamma * (form_dict[home] - form_dict[away])
+            new_away_form = form_dict[away] - gamma * (form_dict[away] - form_dict[home])
+            form_dict[home] = new_home_form
+            form_dict[away] = new_away_form
     
     print(f"[Form] Calculado para {len(features)} partidas")
     print(f"[Form] Exemplo Form final: {list(form_dict.items())[:3]}")

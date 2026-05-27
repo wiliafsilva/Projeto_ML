@@ -14,11 +14,11 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from preprocessing import load_all_data
-from feature_engineering import calculate_team_stats
-from train_models import prepare_features_by_model
+from src.preprocessing import load_all_data
+from src.feature_engineering import calculate_team_stats
+from src.train_models import prepare_features_by_model
 
 def main():
     print("="*80)
@@ -53,7 +53,22 @@ def main():
     # Feature importance
     print("\n4. Calculando feature importance...")
     importances = rf_base.feature_importances_
-    feature_names = X_train.columns
+
+    # Prefer feature_columns saved with o modelo (garante mesmo ordem usada no treino)
+    feature_names = None
+    try:
+        feature_names = data['models']['RandomForest'].get('feature_columns')
+    except Exception:
+        feature_names = None
+
+    if feature_names is None:
+        feature_names = list(X_train.columns)
+
+    # Garantia extra: alinhar comprimentos se houver discrepância
+    if len(importances) != len(feature_names):
+        min_len = min(len(importances), len(feature_names))
+        importances = importances[:min_len]
+        feature_names = feature_names[:min_len]
     
     # DataFrame ordenado
     importance_df = pd.DataFrame({
@@ -84,7 +99,8 @@ def main():
     print("-"*80)
     
     for feat in new_features:
-        if feat in feature_names.tolist():
+        # feature_names pode ser lista (vinda dos metadados) ou Index; garantir iterável
+        if feat in (list(feature_names) if not hasattr(feature_names, 'tolist') else feature_names.tolist()):
             feat_row = importance_df[importance_df['Feature'] == feat]
             rank = feat_row.index[0] + 1
             importance = feat_row['Importance'].values[0]
