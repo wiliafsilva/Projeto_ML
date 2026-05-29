@@ -4,6 +4,7 @@
 
 import sys
 import subprocess
+import argparse
 from pathlib import Path
 
 # Forçar UTF-8 no Windows
@@ -18,6 +19,14 @@ sys.path.insert(0, str(root_dir))
 print("="*80)
 print("🚀 GERAÇÃO COMPLETA DE TABELAS E FIGURAS")
 print("="*80)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Gerar todas as tabelas e figuras")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
 print("\nEste script irá gerar:")
 print("  • 10 tabelas consolidadas (CSV)")
 print("  • 6 visualizações de alta qualidade (PNG 300 DPI)")
@@ -29,7 +38,14 @@ print("\n[1/2] Gerando tabelas consolidadas...")
 print("-" * 80)
 try:
     result = subprocess.run(
-        [sys.executable, "scripts/generate_tables.py"],
+        [
+            sys.executable,
+            "scripts/generate_tables.py",
+            "--model-path",
+            args.model_path,
+            "--output-dir",
+            args.output_dir,
+        ],
         check=True,
         capture_output=False,
         text=True
@@ -48,7 +64,14 @@ print("[2/2] Gerando visualizações (300 DPI)...")
 print("-" * 80)
 try:
     result = subprocess.run(
-        [sys.executable, "scripts/generate_figures.py"],
+        [
+            sys.executable,
+            "scripts/generate_figures.py",
+            "--model-path",
+            args.model_path,
+            "--output-dir",
+            args.output_dir,
+        ],
         check=True,
         capture_output=False,
         text=True
@@ -66,8 +89,8 @@ print("\n" + "="*80)
 print("🎉 GERAÇÃO COMPLETA FINALIZADA!")
 print("="*80)
 print("\n📁 Arquivos gerados:")
-print("   Tabelas: models/*.csv (10 arquivos)")
-print("   Figuras: models/figures/*.png (6 arquivos)")
+print(f"   Tabelas: {args.output_dir}/*.csv (10 arquivos)")
+print(f"   Figuras: {args.output_dir}/figures/*.png (6 arquivos)")
 print("\n💡 Próximos passos:")
 print("   1. Visualizar no Streamlit:")
 print("      streamlit run app.py")

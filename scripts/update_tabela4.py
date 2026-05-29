@@ -10,6 +10,7 @@ Data: Março 2026
 
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
@@ -24,6 +25,17 @@ print("="*80)
 print("ATUALIZANDO TABELA 4 - CONFUSION MATRICES")
 print("="*80)
 print()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Atualizar tabela 4")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
 
 # Carregar dados
 print("Carregando dados...")
@@ -42,7 +54,7 @@ print()
 
 # Carregar modelos
 print("Carregando modelos treinados...")
-results_metadata = joblib.load('models/trained_models.pkl')
+results_metadata = joblib.load(args.model_path)
 models_info = results_metadata['models']
 print(f"   {len(models_info)} modelos")
 print()
@@ -77,7 +89,7 @@ for model_name in ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']:
     cm_df['Total'] = cm_df.sum(axis=1)
     
     # Salvar
-    output_path = f'models/tabela4_cm_{model_name.lower()}.csv'
+    output_path = os.path.join(output_dir, f'tabela4_cm_{model_name.lower()}.csv')
     cm_df.to_csv(output_path)
     
     # Calcular accuracy da diagonal
@@ -94,12 +106,12 @@ print()
 
 # Mostrar exemplo (RandomForest)
 print("Exemplo - RandomForest:")
-cm_rf = pd.read_csv('models/tabela4_cm_randomforest.csv', index_col=0)
+cm_rf = pd.read_csv(os.path.join(output_dir, 'tabela4_cm_randomforest.csv'), index_col=0)
 print(cm_rf)
 print()
 
 print("Arquivos gerados:")
-print("   - models/tabela4_cm_randomforest.csv")
-print("   - models/tabela4_cm_xgboost.csv")
-print("   - models/tabela4_cm_naivebayes.csv")
-print("   - models/tabela4_cm_svm.csv")
+print(f"   - {os.path.join(output_dir, 'tabela4_cm_randomforest.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela4_cm_xgboost.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela4_cm_naivebayes.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela4_cm_svm.csv')}")

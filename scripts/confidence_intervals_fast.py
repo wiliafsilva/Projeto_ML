@@ -13,6 +13,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import argparse
 import pandas as pd
 import numpy as np
 import joblib
@@ -26,6 +27,13 @@ from src.train_models import prepare_features_by_model
 N_ITERATIONS = 100  # Rápido para validação
 CONFIDENCE_LEVEL = 95
 RANDOM_STATE = 42
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Confidence intervals (bootstrap)")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
 
 def rps_score(y_true, y_proba):
     """Ranked Probability Score (menor = melhor)"""
@@ -68,7 +76,8 @@ print()
 
 # Carregar modelos
 print("Carregando modelos treinados...")
-results_metadata = joblib.load('models/trained_models.pkl')
+args = parse_args()
+results_metadata = joblib.load(args.model_path)
 models_info = results_metadata['models']
 print(f"   {len(models_info)} modelos")
 print()
@@ -161,7 +170,7 @@ for season_name, season_mask in seasons_test:
 ci_df = pd.DataFrame(all_ci_results)
 
 # Salvar
-output_path = 'models/confidence_intervals.csv'
+output_path = os.path.join(args.output_dir, 'confidence_intervals.csv')
 ci_df.to_csv(output_path, index=False)
 
 print("\n" + "="*80)

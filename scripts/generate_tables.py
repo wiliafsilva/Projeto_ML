@@ -4,6 +4,7 @@
 
 import sys
 import os
+import argparse
 from pathlib import Path
 
 # Forçar UTF-8 no Windows
@@ -18,6 +19,7 @@ sys.path.insert(0, str(root_dir))
 import joblib
 import pandas as pd
 import numpy as np
+import tensorflow as tf
 from src.preprocessing import load_all_data, load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -26,6 +28,45 @@ print("="*80)
 print("GERAÇÃO DE TABELAS CONSOLIDADAS PARA ARTIGO CIENTÍFICO")
 print("="*80)
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Gerar tabelas consolidadas")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
+os.makedirs(output_dir, exist_ok=True)
+
+
+def is_latent_columns(columns):
+    return bool(columns) and all(col.startswith("latent_") for col in columns)
+
+
+def load_latent_tools(model_path, output_dir):
+    search_dirs = [output_dir, os.path.dirname(model_path)]
+    for base_dir in search_dirs:
+        scaler_path = os.path.join(base_dir, "scaler.joblib")
+        encoder_path = os.path.join(base_dir, "encoder.keras")
+        autoencoder_path = os.path.join(base_dir, "autoencoder.keras")
+        if os.path.exists(scaler_path) and os.path.exists(encoder_path):
+            scaler = joblib.load(scaler_path)
+            encoder = tf.keras.models.load_model(encoder_path)
+            return scaler, encoder
+        if os.path.exists(scaler_path) and os.path.exists(autoencoder_path):
+            from src.train_models import AutoencoderLatent
+            scaler = joblib.load(scaler_path)
+            autoencoder = tf.keras.models.load_model(
+                autoencoder_path,
+                custom_objects={"AutoencoderLatent": AutoencoderLatent}
+            )
+            if not hasattr(autoencoder, "encoder"):
+                raise ValueError("Autoencoder carregado nao possui atributo encoder.")
+            return scaler, autoencoder.encoder
+    raise FileNotFoundError("Nao encontrei scaler.joblib e encoder.keras/autoencoder.keras para modelos latentes.")
+
 # Carregar dados
 df_all = load_all_data()
 df_train = load_multiple_seasons("data/data_2005_2014")
@@ -33,7 +74,7 @@ df_test = load_multiple_seasons("data/data_2014_2016")
 
 # Carregar modelos
 try:
-    results_metadata = joblib.load("models/trained_models.pkl")
+    results_metadata = joblib.load(args.model_path)
     models = results_metadata.get('models', results_metadata)
 except:
     print("\n⚠️  ERRO: Modelos não encontrados. Execute 'python main.py' primeiro.")
@@ -45,6 +86,10 @@ features_test = calculate_team_stats(df_test)
 
 X_test = features_test.drop(['Result', 'Season'], axis=1)
 y_test = features_test['Result']
+
+latent_scaler = None
+latent_encoder = None
+X_test_latent = None
 
 print("\n" + "="*80)
 print("TABELA 1: RESUMO DO DATASET")
@@ -94,8 +139,9 @@ tabela1 = pd.DataFrame({
 })
 
 print(tabela1.to_string(index=False))
-tabela1.to_csv('models/tabela1_resumo_dataset.csv', index=False)
-print("\n✓ Salva em: models/tabela1_resumo_dataset.csv")
+table1_path = os.path.join(output_dir, 'tabela1_resumo_dataset.csv')
+tabela1.to_csv(table1_path, index=False)
+print(f"\n✓ Salva em: {table1_path}")
 
 print("\n" + "="*80)
 print("TABELA 2: ESTATÍSTICAS DESCRITIVAS DAS FEATURES")
@@ -120,8 +166,9 @@ for col in feature_cols:
 
 tabela2 = pd.DataFrame(stats_data)
 print(tabela2.to_string(index=False))
-tabela2.to_csv('models/tabela2_estatisticas_features.csv', index=False)
-print("\n✓ Salva em: models/tabela2_estatisticas_features.csv")
+table2_path = os.path.join(output_dir, 'tabela2_estatisticas_features.csv')
+tabela2.to_csv(table2_path, index=False)
+print(f"\n✓ Salva em: {table2_path}")
 
 print("\n" + "="*80)
 print("TABELA 3: COMPARAÇÃO COMPLETA DE MODELOS")
@@ -155,7 +202,13 @@ for name, info in models.items():
     
     # Filtrar features para corresponder ao modelo
     feature_columns = info.get('feature_columns', None)
-    if feature_columns is not None:
+    if is_latent_columns(feature_columns):
+        if X_test_latent is None:
+            latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+            X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+            X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+        X_test_model = X_test_latent
+    elif feature_columns is not None:
         X_test_model = X_test[feature_columns]
     else:
         X_test_model = X_test
@@ -194,8 +247,9 @@ for name, info in models.items():
 
 tabela3 = pd.DataFrame(comparison_data)
 print(tabela3.to_string(index=False))
-tabela3.to_csv('models/tabela3_comparacao_modelos.csv', index=False)
-print("\n✓ Salva em: models/tabela3_comparacao_modelos.csv")
+table3_path = os.path.join(output_dir, 'tabela3_comparacao_modelos.csv')
+tabela3.to_csv(table3_path, index=False)
+print(f"\n✓ Salva em: {table3_path}")
 
 print("\n" + "="*80)
 print("TABELA 4: MATRIZ DE CONFUSÃO DETALHADA (POR MODELO)")
@@ -210,7 +264,13 @@ for name, info in models.items():
     
     # Filtrar features para corresponder ao modelo
     feature_columns = info.get('feature_columns', None)
-    if feature_columns is not None:
+    if is_latent_columns(feature_columns):
+        if X_test_latent is None:
+            latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+            X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+            X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+        X_test_model = X_test_latent
+    elif feature_columns is not None:
         X_test_model = X_test[feature_columns]
     else:
         X_test_model = X_test
@@ -242,8 +302,9 @@ for name, info in models.items():
     print(cm_pct_df.round(1).to_string())
     
     # Salvar
-    cm_df.to_csv(f'models/tabela4_cm_{name.lower()}.csv')
-    print(f"\n✓ Salva em: models/tabela4_cm_{name.lower()}.csv")
+    cm_path = os.path.join(output_dir, f'tabela4_cm_{name.lower()}.csv')
+    cm_df.to_csv(cm_path)
+    print(f"\n✓ Salva em: {cm_path}")
 
 print("\n" + "="*80)
 print("TABELA 5: PERFORMANCE POR TEMPORADA")
@@ -254,6 +315,7 @@ temporada_data = []
 
 for season in sorted(features_test['Season'].unique()):
     season_features = features_test[features_test['Season'] == season]
+    season_mask = features_test['Season'] == season
     X_season = season_features.drop(['Result', 'Season'], axis=1)
     y_season = season_features['Result']
     
@@ -273,7 +335,13 @@ for season in sorted(features_test['Season'].unique()):
         
         # Filtrar features para corresponder ao modelo
         feature_columns = info.get('feature_columns', None)
-        if feature_columns is not None:
+        if is_latent_columns(feature_columns):
+            if X_test_latent is None:
+                latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+                X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+                X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+            X_season_model = X_test_latent[season_mask]
+        elif feature_columns is not None:
             X_season_model = X_season[feature_columns]
         else:
             X_season_model = X_season
@@ -305,7 +373,13 @@ for name, info in models.items():
     
     # Filtrar features para corresponder ao modelo
     feature_columns = info.get('feature_columns', None)
-    if feature_columns is not None:
+    if is_latent_columns(feature_columns):
+        if X_test_latent is None:
+            latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+            X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+            X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+        X_all_model = X_test_latent
+    elif feature_columns is not None:
         X_all_model = X_all[feature_columns]
     else:
         X_all_model = X_all
@@ -318,8 +392,9 @@ temporada_data.append(row_all)
 
 tabela5 = pd.DataFrame(temporada_data)
 print(tabela5.to_string(index=False))
-tabela5.to_csv('models/tabela5_performance_temporada.csv', index=False)
-print("\n✓ Salva em: models/tabela5_performance_temporada.csv")
+table5_path = os.path.join(output_dir, 'tabela5_performance_temporada.csv')
+tabela5.to_csv(table5_path, index=False)
+print(f"\n✓ Salva em: {table5_path}")
 
 print("\n" + "="*80)
 print("TABELA 6: CLASSIFICAÇÃO POR CLASSE (DETALHADA)")
@@ -332,7 +407,13 @@ for name, info in models.items():
     
     # Filtrar features para corresponder ao modelo
     feature_columns = info.get('feature_columns', None)
-    if feature_columns is not None:
+    if is_latent_columns(feature_columns):
+        if X_test_latent is None:
+            latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+            X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+            X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+        X_test_model = X_test_latent
+    elif feature_columns is not None:
         X_test_model = X_test[feature_columns]
     else:
         X_test_model = X_test
@@ -363,13 +444,14 @@ for name, info in models.items():
     print(report_df.round(4).to_string())
     
     # Salvar
-    report_df.to_csv(f'models/tabela6_classificacao_{name.lower()}.csv')
-    print(f"\n✓ Salva em: models/tabela6_classificacao_{name.lower()}.csv")
+    report_path = os.path.join(output_dir, f'tabela6_classificacao_{name.lower()}.csv')
+    report_df.to_csv(report_path)
+    print(f"\n✓ Salva em: {report_path}")
 
 print("\n" + "="*80)
 print("✅ TODAS AS TABELAS FORAM GERADAS COM SUCESSO!")
 print("="*80)
-print("\nArquivos criados na pasta 'models/':")
+print(f"\nArquivos criados na pasta '{output_dir}':")
 print("  - tabela1_resumo_dataset.csv")
 print("  - tabela2_estatisticas_features.csv")
 print("  - tabela3_comparacao_modelos.csv")

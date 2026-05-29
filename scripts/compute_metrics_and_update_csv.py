@@ -1,4 +1,5 @@
 import os
+import argparse
 import pandas as pd
 import numpy as np
 from sklearn.svm import SVC
@@ -19,6 +20,23 @@ from src.feature_engineering import calculate_team_stats
 import joblib
 
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Compute metrics and update CSV")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
+if not os.path.isabs(output_dir):
+    output_dir = os.path.join(BASE, output_dir)
+
+model_path = args.model_path
+if not os.path.isabs(model_path):
+    model_path = os.path.join(BASE, model_path)
 train_dir = os.path.join(BASE, 'data', 'data_2005_2014')
 test_dir = os.path.join(BASE, 'data', 'data_2014_2016')
 
@@ -61,7 +79,7 @@ y_train = features_train['Result']
 # no momento da predição abaixo; caso contrário, o script pula ensembles.
 
 # Now, compute metrics per season and update baseline_comparison.csv
-csv_path = os.path.join(BASE, 'models', 'baseline_comparison.csv')
+csv_path = os.path.join(output_dir, 'baseline_comparison.csv')
 if not os.path.exists(csv_path):
     print('CSV baseline_comparison.csv não encontrado. Saindo.')
     sys.exit(1)
@@ -157,7 +175,7 @@ for season in season_names:
             try:
                 trained_models = {}
                 try:
-                    tm = joblib.load(os.path.join(BASE, 'models', 'trained_models.pkl'))
+                    tm = joblib.load(model_path)
                     trained_models = tm.get('models', tm) if isinstance(tm, dict) else {}
                 except Exception:
                     trained_models = {}
@@ -218,6 +236,6 @@ for season in season_names:
         print(f"  Atualizado {season} - {key}: Brier={brier_mean:.4f}, ROC_AUC={roc:.4f}")
 
 # Save updated CSV
-out_path = os.path.join(BASE, 'models', 'baseline_comparison_with_metrics.csv')
+out_path = os.path.join(output_dir, 'baseline_comparison_with_metrics.csv')
 df_baseline.to_csv(out_path)
 print('CSV atualizado salvo em', out_path)

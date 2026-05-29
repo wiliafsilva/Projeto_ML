@@ -9,6 +9,8 @@ Autor: Projeto_ML
 Data: Março 2026
 """
 
+import argparse
+import os
 import pandas as pd
 import joblib
 import numpy as np
@@ -18,15 +20,26 @@ print("ATUALIZANDO TABELA 3: COMPARAÇÃO COMPLETA DE MODELOS")
 print("="*80)
 print()
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Atualizar tabela 3")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
+
 # Carregar baseline_comparison.csv
 print("📂 Carregando baseline_comparison.csv...")
-baseline_df = pd.read_csv('models/baseline_comparison.csv')
+baseline_df = pd.read_csv(os.path.join(output_dir, 'baseline_comparison.csv'))
 print(f"   ✓ {len(baseline_df)} modelos carregados")
 print()
 
 # Carregar trained_models.pkl para RPS
 print("📂 Carregando trained_models.pkl...")
-results_metadata = joblib.load('models/trained_models.pkl')
+results_metadata = joblib.load(args.model_path)
 models_info = results_metadata['models']
 print(f"   ✓ {len(models_info)} modelos treinados")
 print()
@@ -99,7 +112,7 @@ for model_name in ml_models:
 
 # Converter para DataFrame e salvar
 table3_df = pd.DataFrame(table3_data)
-output_path = 'models/tabela3_comparacao_modelos.csv'
+output_path = os.path.join(output_dir, 'tabela3_comparacao_modelos.csv')
 table3_df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
 print()

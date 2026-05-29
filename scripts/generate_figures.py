@@ -4,6 +4,7 @@
 
 import sys
 import os
+import argparse
 from pathlib import Path
 
 # Forçar UTF-8 no Windows
@@ -21,6 +22,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shutil
+import tensorflow as tf
 from src.preprocessing import load_all_data, load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 from sklearn.metrics import accuracy_score
@@ -33,9 +35,47 @@ print("="*80)
 print("GERAÇÃO DE VISUALIZAÇÕES AVANÇADAS PARA ARTIGO CIENTÍFICO")
 print("="*80)
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Gerar figuras consolidadas")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
+figures_dir = os.path.join(output_dir, 'figures')
+
+
+def is_latent_columns(columns):
+    return bool(columns) and all(col.startswith("latent_") for col in columns)
+
+
+def load_latent_tools(model_path, output_dir):
+    search_dirs = [output_dir, os.path.dirname(model_path)]
+    for base_dir in search_dirs:
+        scaler_path = os.path.join(base_dir, "scaler.joblib")
+        encoder_path = os.path.join(base_dir, "encoder.keras")
+        autoencoder_path = os.path.join(base_dir, "autoencoder.keras")
+        if os.path.exists(scaler_path) and os.path.exists(encoder_path):
+            scaler = joblib.load(scaler_path)
+            encoder = tf.keras.models.load_model(encoder_path)
+            return scaler, encoder
+        if os.path.exists(scaler_path) and os.path.exists(autoencoder_path):
+            from src.train_models import AutoencoderLatent
+            scaler = joblib.load(scaler_path)
+            autoencoder = tf.keras.models.load_model(
+                autoencoder_path,
+                custom_objects={"AutoencoderLatent": AutoencoderLatent}
+            )
+            if not hasattr(autoencoder, "encoder"):
+                raise ValueError("Autoencoder carregado nao possui atributo encoder.")
+            return scaler, autoencoder.encoder
+    raise FileNotFoundError("Nao encontrei scaler.joblib e encoder.keras/autoencoder.keras para modelos latentes.")
+
 # Criar pasta para salvar gráficos
-import os
-os.makedirs('models/figures', exist_ok=True)
+os.makedirs(figures_dir, exist_ok=True)
 
 # Carregar dados
 df_all = load_all_data()
@@ -46,9 +86,13 @@ features_all = calculate_team_stats(df_all)
 X_test = features_test.drop(['Result', 'Season'], axis=1)
 y_test = features_test['Result']
 
+latent_scaler = None
+latent_encoder = None
+X_test_latent = None
+
 # Carregar modelos
 try:
-    results_metadata = joblib.load("models/trained_models.pkl")
+    results_metadata = joblib.load(args.model_path)
     models = results_metadata.get('models', results_metadata)
 except:
     print("\n⚠️  ERRO: Modelos não encontrados. Execute 'python main.py' primeiro.")
@@ -71,7 +115,13 @@ for name, info in models.items():
     
     # Filtrar features para corresponder ao modelo
     feature_columns = info.get('feature_columns', None)
-    if feature_columns is not None:
+    if is_latent_columns(feature_columns):
+        if X_test_latent is None:
+            latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+            X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+            X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+        X_test_model = X_test_latent
+    elif feature_columns is not None:
         X_test_model = X_test[feature_columns]
     else:
         X_test_model = X_test
@@ -119,8 +169,9 @@ ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
 ax.set_title('Comparação Multi-Métrica dos Modelos', size=14, y=1.08)
 
 plt.tight_layout()
-plt.savefig('models/figures/fig1_radar_comparison.png', dpi=300, bbox_inches='tight')
-print("✓ Salvo: models/figures/fig1_radar_comparison.png")
+fig1_path = os.path.join(figures_dir, 'fig1_radar_comparison.png')
+plt.savefig(fig1_path, dpi=300, bbox_inches='tight')
+print(f"✓ Salvo: {fig1_path}")
 plt.close()
 
 # ============================================================================
@@ -139,8 +190,9 @@ ax.set_xticklabels(['Goal Diff', 'Streak Diff', 'Weighted Diff'], rotation=45, h
 ax.set_yticklabels(['Goal Diff', 'Streak Diff', 'Weighted Diff'], rotation=0)
 
 plt.tight_layout()
-plt.savefig('models/figures/fig2_feature_correlation.png', dpi=300, bbox_inches='tight')
-print("✓ Salvo: models/figures/fig2_feature_correlation.png")
+fig2_path = os.path.join(figures_dir, 'fig2_feature_correlation.png')
+plt.savefig(fig2_path, dpi=300, bbox_inches='tight')
+print(f"✓ Salvo: {fig2_path}")
 plt.close()
 
 # ============================================================================
@@ -173,8 +225,9 @@ for idx, col in enumerate(feature_cols):
 
 fig.suptitle('Distribuição das Features por Resultado da Partida', fontsize=14, y=1.02)
 plt.tight_layout()
-plt.savefig('models/figures/fig3_boxplots_by_result.png', dpi=300, bbox_inches='tight')
-print("✓ Salvo: models/figures/fig3_boxplots_by_result.png")
+fig3_path = os.path.join(figures_dir, 'fig3_boxplots_by_result.png')
+plt.savefig(fig3_path, dpi=300, bbox_inches='tight')
+print(f"✓ Salvo: {fig3_path}")
 plt.close()
 
 # ============================================================================
@@ -223,8 +276,9 @@ for idx, model_name in enumerate(['RandomForest', 'XGBoost']):
 
 fig.suptitle('Comparação de Importância das Features', fontsize=14, y=1.02)
 plt.tight_layout()
-plt.savefig('models/figures/fig4_feature_importance_comparison.png', dpi=300, bbox_inches='tight')
-print("✓ Salvo: models/figures/fig4_feature_importance_comparison.png")
+fig4_path = os.path.join(figures_dir, 'fig4_feature_importance_comparison.png')
+plt.savefig(fig4_path, dpi=300, bbox_inches='tight')
+print(f"✓ Salvo: {fig4_path}")
 plt.close()
 
 # ============================================================================
@@ -247,7 +301,13 @@ for class_idx, class_name in enumerate(class_names):
         
         # Filtrar features para corresponder ao modelo
         feature_columns = info.get('feature_columns', None)
-        if feature_columns is not None:
+        if is_latent_columns(feature_columns):
+            if X_test_latent is None:
+                latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+                X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+                X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+            X_test_model = X_test_latent
+        elif feature_columns is not None:
             X_test_model = X_test[feature_columns]
         else:
             X_test_model = X_test
@@ -270,8 +330,9 @@ for class_idx, class_name in enumerate(class_names):
 
 fig.suptitle('Curvas de Calibração por Classe', fontsize=14, y=1.02)
 plt.tight_layout()
-plt.savefig('models/figures/fig5_calibration_comparison.png', dpi=300, bbox_inches='tight')
-print("✓ Salvo: models/figures/fig5_calibration_comparison.png")
+fig5_path = os.path.join(figures_dir, 'fig5_calibration_comparison.png')
+plt.savefig(fig5_path, dpi=300, bbox_inches='tight')
+print(f"✓ Salvo: {fig5_path}")
 plt.close()
 
 # ============================================================================
@@ -282,7 +343,7 @@ print("\n[6/6] Gerando Gráficos de Barras de Comparação de Métricas por temp
 # Preferir usar o CSV consolidado quando disponível (contém métricas por temporada)
 df_base = None
 try:
-    df_base = pd.read_csv('models/baseline_comparison.csv')
+    df_base = pd.read_csv(os.path.join(output_dir, 'baseline_comparison.csv'))
 except Exception:
     df_base = None
 
@@ -324,7 +385,13 @@ for season in seasons:
             info = models.get(model_name, {})
             model = info.get('model')
             feature_columns = info.get('feature_columns', None)
-            if feature_columns is not None:
+            if is_latent_columns(feature_columns):
+                if X_test_latent is None:
+                    latent_scaler, latent_encoder = load_latent_tools(args.model_path, output_dir)
+                    X_scaled = latent_scaler.transform(X_test.values.astype(np.float32))
+                    X_test_latent = latent_encoder.predict(X_scaled, verbose=0)
+                X_test_model = X_test_latent
+            elif feature_columns is not None:
                 X_test_model = X_test[feature_columns]
             else:
                 X_test_model = X_test
@@ -353,14 +420,14 @@ for season in seasons:
     ax.grid(axis='y', alpha=0.3)
 
     plt.tight_layout()
-    out_path = f'models/figures/fig6_metrics_comparison_bars_{season}.png'
+    out_path = os.path.join(figures_dir, f'fig6_metrics_comparison_bars_{season}.png')
     plt.savefig(out_path, dpi=300, bbox_inches='tight')
     print(f"✓ Salvo: {out_path}")
     plt.close()
 
 # Manter um arquivo genérico (compatibilidade com app) apontando para 'All'
-all_src = 'models/figures/fig6_metrics_comparison_bars_All.png'
-default_dst = 'models/figures/fig6_metrics_comparison_bars.png'
+all_src = os.path.join(figures_dir, 'fig6_metrics_comparison_bars_All.png')
+default_dst = os.path.join(figures_dir, 'fig6_metrics_comparison_bars.png')
 if os.path.exists(all_src):
     try:
         shutil.copyfile(all_src, default_dst)
@@ -374,7 +441,7 @@ if os.path.exists(all_src):
 print("\n" + "="*80)
 print("✅ TODAS AS VISUALIZAÇÕES FORAM GERADAS COM SUCESSO!")
 print("="*80)
-print("\nArquivos criados na pasta 'models/figures/' (300 DPI):")
+print(f"\nArquivos criados na pasta '{figures_dir}' (300 DPI):")
 print("  1. fig1_radar_comparison.png - Radar chart multi-métrica")
 print("  2. fig2_feature_correlation.png - Heatmap de correlação")
 print("  3. fig3_boxplots_by_result.png - Boxplots por resultado")
@@ -393,7 +460,7 @@ print("✓ Pronto para: Artigos científicos, apresentações, relatórios")
 import os
 print("\n📁 Tamanho dos arquivos:")
 for i in range(1, 7):
-    fig_path = f'models/figures/fig{i}_*.png'
+    fig_path = os.path.join(figures_dir, f'fig{i}_*.png')
     import glob
     matching_files = glob.glob(fig_path)
     if matching_files:

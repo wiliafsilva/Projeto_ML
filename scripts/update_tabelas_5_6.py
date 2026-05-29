@@ -13,6 +13,7 @@ Data: Março 2026
 
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
@@ -27,6 +28,17 @@ print("="*80)
 print("ATUALIZANDO TABELAS 5 E 6")
 print("="*80)
 print()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Atualizar tabelas 5 e 6")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
 
 # Carregar dados
 print("📂 Carregando dados...")
@@ -46,7 +58,7 @@ print()
 
 # Carregar modelos
 print("📂 Carregando modelos treinados...")
-results_metadata = joblib.load('models/trained_models.pkl')
+results_metadata = joblib.load(args.model_path)
 models_info = results_metadata['models']
 print(f"   ✓ {len(models_info)} modelos")
 print()
@@ -140,7 +152,7 @@ print(f"   ✓ All: {row_all['Jogos']} jogos")
 
 # Salvar Tabela 5
 table5_df = pd.DataFrame(table5_data)
-output_path5 = 'models/tabela5_performance_temporada.csv'
+output_path5 = os.path.join(output_dir, 'tabela5_performance_temporada.csv')
 table5_df.to_csv(output_path5, index=False)
 
 print()
@@ -205,7 +217,7 @@ for model_name in ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']:
     
     # Salvar
     table6_df = pd.DataFrame(table6_data)
-    output_path6 = f'models/tabela6_classificacao_{model_name.lower()}.csv'
+    output_path6 = os.path.join(output_dir, f'tabela6_classificacao_{model_name.lower()}.csv')
     table6_df.to_csv(output_path6, index=False)
     
     print(f"   ✓ Salvo em: {output_path6}")
@@ -216,8 +228,8 @@ print("✅ TABELAS 5 E 6 ATUALIZADAS!")
 print("="*80)
 print()
 print("📁 Arquivos gerados:")
-print("   - models/tabela5_performance_temporada.csv")
-print("   - models/tabela6_classificacao_randomforest.csv")
-print("   - models/tabela6_classificacao_xgboost.csv")
-print("   - models/tabela6_classificacao_naivebayes.csv")
-print("   - models/tabela6_classificacao_svm.csv")
+print(f"   - {os.path.join(output_dir, 'tabela5_performance_temporada.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela6_classificacao_randomforest.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela6_classificacao_xgboost.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela6_classificacao_naivebayes.csv')}")
+print(f"   - {os.path.join(output_dir, 'tabela6_classificacao_svm.csv')}")

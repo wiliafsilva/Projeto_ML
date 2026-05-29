@@ -1,4 +1,5 @@
 
+import os
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier, StackingClassifier
 from sklearn.naive_bayes import GaussianNB
@@ -7,9 +8,13 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.preprocessing import MinMaxScaler
 import joblib
 import numpy as np
 import pandas as pd
+import tensorflow as tf
+from tensorflow.keras import layers, Model
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 def rps(y_true, y_prob):
     y_true = y_true.astype(int)  # Garantir que y_true é do tipo inteiro
@@ -501,3 +506,305 @@ def train_models(df_train, df_test):
     joblib.dump(results_metadata, "models/trained_models.pkl")
     print(f"\n✓ Modelos salvos em models/trained_models.pkl")
     print(f"✓ Resultados salvos para: 2014-2015, 2015-2016, All")
+
+
+class AutoencoderLatent(Model):
+    def __init__(self, input_dim, latent_dim=8):
+        super().__init__()
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        self.encoder = tf.keras.Sequential([
+            layers.Dense(64, activation="relu", input_shape=(input_dim,)),
+            layers.Dense(32, activation="relu"),
+            layers.Dense(latent_dim, activation="relu"),
+        ])
+        self.decoder = tf.keras.Sequential([
+            layers.Dense(32, activation="relu"),
+            layers.Dense(64, activation="relu"),
+            layers.Dense(input_dim, activation="sigmoid"),
+        ])
+
+    def call(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "input_dim": self.input_dim,
+            "latent_dim": self.latent_dim,
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+def _prepare_autoencoder_features(df):
+    if "Result" not in df.columns:
+        raise ValueError("Result column not found in features")
+
+    y = df["Result"].astype(int).values
+    seasons = df["Season"].values if "Season" in df.columns else None
+    X = df.drop(columns=[c for c in ["Result", "Season"] if c in df.columns])
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X = X.select_dtypes(include=[np.number]).copy()
+    if X.isna().any().any():
+        X = X.fillna(X.median(numeric_only=True))
+
+    return X, y, seasons
+
+
+def train_models_autoencoder(df_train, df_test, latent_dim=8, output_dir="models/autoencoder_latent"):
+    os.makedirs(output_dir, exist_ok=True)
+
+    X_train, y_train, _ = _prepare_autoencoder_features(df_train)
+    X_test, y_test, seasons_test = _prepare_autoencoder_features(df_test)
+
+    scaler = MinMaxScaler()
+    X_train_scaled = scaler.fit_transform(X_train.values.astype(np.float32))
+    X_test_scaled = scaler.transform(X_test.values.astype(np.float32))
+
+    autoencoder = AutoencoderLatent(X_train_scaled.shape[1], latent_dim=latent_dim)
+    autoencoder.compile(optimizer="adam", loss="mae")
+
+    early_stop = EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        restore_best_weights=True,
+        min_delta=1e-4,
+    )
+    reduce_lr = ReduceLROnPlateau(
+        monitor="val_loss",
+        factor=0.5,
+        patience=5,
+        min_lr=1e-6,
+        verbose=1,
+    )
+
+    autoencoder.fit(
+        X_train_scaled,
+        X_train_scaled,
+        epochs=200,
+        batch_size=min(2048, len(X_train_scaled)),
+        validation_data=(X_test_scaled, X_test_scaled),
+        shuffle=True,
+        verbose=1,
+        callbacks=[early_stop, reduce_lr],
+    )
+
+    X_train_latent = autoencoder.encoder(X_train_scaled).numpy()
+    X_test_latent = autoencoder.encoder(X_test_scaled).numpy()
+
+    sample_weights = compute_sample_weight('balanced', y_train)
+
+    models = {
+        "SVM": SVC(
+            probability=True,
+            kernel='rbf',
+            C=0.1,
+            gamma=0.001,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        "RandomForest": RandomForestClassifier(
+            n_estimators=50,
+            max_depth=5,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        "XGBoost": XGBClassifier(
+            eval_metric='mlogloss',
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.01,
+            subsample=0.8,
+            colsample_bytree=1.0,
+            random_state=42
+        ),
+        "NaiveBayes": GaussianNB(
+            var_smoothing=1e-05
+        ),
+    }
+
+    results = {}
+    for name, model in models.items():
+        if name in ["XGBoost", "NaiveBayes"]:
+            model.fit(X_train_latent, y_train, sample_weight=sample_weights)
+        else:
+            model.fit(X_train_latent, y_train)
+
+        preds = model.predict(X_test_latent)
+        probs = model.predict_proba(X_test_latent)
+
+        acc = accuracy_score(y_test, preds)
+        f1 = f1_score(y_test, preds, average='macro', zero_division=0)
+        score_rps = rps(y_test, probs)
+
+        results[name] = {
+            "model": model,
+            "accuracy": acc,
+            "f1": f1,
+            "rps": score_rps,
+            "feature_columns": [f"latent_{i}" for i in range(X_train_latent.shape[1])]
+        }
+
+    # Ensembles on latent space
+    rf_base = RandomForestClassifier(
+        n_estimators=200, max_depth=10, min_samples_split=2, min_samples_leaf=4,
+        random_state=42, class_weight='balanced'
+    )
+    xgb_base = XGBClassifier(
+        eval_metric='mlogloss', n_estimators=50, max_depth=3, learning_rate=0.05,
+        subsample=0.7, colsample_bytree=0.7, random_state=42
+    )
+    nb_base = GaussianNB()
+
+    voting_equal = VotingClassifier(
+        estimators=[('rf', rf_base), ('xgb', xgb_base), ('nb', nb_base)],
+        voting='soft',
+        weights=[1, 1, 1]
+    )
+    voting_equal.fit(X_train_latent, y_train)
+    preds_vote_eq = voting_equal.predict(X_test_latent)
+    probs_vote_eq = voting_equal.predict_proba(X_test_latent)
+    results['Voting_Equal'] = {
+        "model": voting_equal,
+        "accuracy": accuracy_score(y_test, preds_vote_eq),
+        "f1": f1_score(y_test, preds_vote_eq, average='macro', zero_division=0),
+        "rps": rps(y_test, probs_vote_eq),
+        "feature_columns": [f"latent_{i}" for i in range(X_train_latent.shape[1])]
+    }
+
+    voting_weighted = VotingClassifier(
+        estimators=[
+            ('rf', RandomForestClassifier(
+                n_estimators=200, max_depth=10, min_samples_split=2, min_samples_leaf=4,
+                random_state=42, class_weight='balanced'
+            )),
+            ('xgb', XGBClassifier(
+                eval_metric='mlogloss', n_estimators=50, max_depth=3, learning_rate=0.05,
+                subsample=0.7, colsample_bytree=0.7, random_state=42
+            )),
+            ('nb', GaussianNB())
+        ],
+        voting='soft',
+        weights=[0.4, 0.3, 0.3]
+    )
+    voting_weighted.fit(X_train_latent, y_train)
+    preds_vote_wt = voting_weighted.predict(X_test_latent)
+    probs_vote_wt = voting_weighted.predict_proba(X_test_latent)
+    results['Voting_Weighted'] = {
+        "model": voting_weighted,
+        "accuracy": accuracy_score(y_test, preds_vote_wt),
+        "f1": f1_score(y_test, preds_vote_wt, average='macro', zero_division=0),
+        "rps": rps(y_test, probs_vote_wt),
+        "feature_columns": [f"latent_{i}" for i in range(X_train_latent.shape[1])]
+    }
+
+    stacking_clf = StackingClassifier(
+        estimators=[
+            ('rf', RandomForestClassifier(
+                n_estimators=200, max_depth=10, min_samples_split=2, min_samples_leaf=4,
+                random_state=42, class_weight='balanced'
+            )),
+            ('xgb', XGBClassifier(
+                eval_metric='mlogloss', n_estimators=50, max_depth=3, learning_rate=0.05,
+                subsample=0.7, colsample_bytree=0.7, random_state=42
+            )),
+            ('nb', GaussianNB())
+        ],
+        final_estimator=LogisticRegression(
+            max_iter=1000,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        cv=3,
+        stack_method='predict_proba'
+    )
+    stacking_clf.fit(X_train_latent, y_train)
+    preds_stack = stacking_clf.predict(X_test_latent)
+    probs_stack = stacking_clf.predict_proba(X_test_latent)
+    results['Stacking'] = {
+        "model": stacking_clf,
+        "accuracy": accuracy_score(y_test, preds_stack),
+        "f1": f1_score(y_test, preds_stack, average='macro', zero_division=0),
+        "rps": rps(y_test, probs_stack),
+        "feature_columns": [f"latent_{i}" for i in range(X_train_latent.shape[1])]
+    }
+
+    seasonal_results = {}
+    seasons_info = [('2014-2015', 2015), ('2015-2016', 2016), ('All', None)]
+    for season_name, season_value in seasons_info:
+        if season_value is None or seasons_test is None:
+            mask = np.ones(len(y_test), dtype=bool)
+        else:
+            mask = seasons_test == season_value
+        if mask is not None and not np.any(mask):
+            continue
+
+        seasonal_results[season_name] = {}
+        for name, info in results.items():
+            model = info['model']
+            preds_season = model.predict(X_test_latent[mask])
+            probs_season = model.predict_proba(X_test_latent[mask])
+            acc_season = accuracy_score(y_test[mask], preds_season)
+            f1_season = f1_score(y_test[mask], preds_season, average='macro', zero_division=0)
+            rps_season = rps(y_test[mask], probs_season)
+            prec_season = precision_score(y_test[mask], preds_season, average='macro', zero_division=0)
+            rec_season = recall_score(y_test[mask], preds_season, average='macro', zero_division=0)
+
+            seasonal_results[season_name][name] = {
+                'accuracy': acc_season,
+                'precision': prec_season,
+                'recall': rec_season,
+                'f1': f1_season,
+                'rps': rps_season,
+                'n_samples': int(mask.sum())
+            }
+
+    results_df = pd.DataFrame([
+        {
+            "model": name,
+            "accuracy": info["accuracy"],
+            "f1": info["f1"],
+            "rps": info["rps"],
+        } for name, info in results.items()
+    ])
+    results_df.to_csv(os.path.join(output_dir, "latent_model_results.csv"), index=False)
+
+    season_rows = []
+    for season_name, models_dict in seasonal_results.items():
+        for model_name, metrics in models_dict.items():
+            season_rows.append({
+                "season": season_name,
+                "model": model_name,
+                "accuracy": metrics["accuracy"],
+                "f1": metrics["f1"],
+                "rps": metrics["rps"],
+                "n_samples": metrics["n_samples"],
+            })
+    pd.DataFrame(season_rows).to_csv(
+        os.path.join(output_dir, "latent_model_results_by_season.csv"),
+        index=False,
+    )
+
+    results_metadata = {
+        'models': results,
+        'seasonal_results': seasonal_results,
+        'train_size': len(df_train),
+        'test_size': len(df_test),
+        'train_period': '2005-2014',
+        'test_period': '2014-2016',
+        'latent_dim': latent_dim,
+        'feature_count': int(X_train_latent.shape[1]),
+        'methodology': 'Autoencoder latent features for all models'
+    }
+    joblib.dump(results_metadata, os.path.join(output_dir, "trained_models_latent.pkl"))
+    joblib.dump(scaler, os.path.join(output_dir, "scaler.joblib"))
+    autoencoder.save(os.path.join(output_dir, "autoencoder.keras"))
+    autoencoder.encoder.save(os.path.join(output_dir, "encoder.keras"))

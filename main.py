@@ -1,7 +1,7 @@
 
 from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
-from src.train_models import train_models
+from src.train_models import train_models, train_models_autoencoder
 import os
 
 def main():
@@ -53,6 +53,11 @@ def main():
     print("ETAPA 3: TREINAMENTO E AVALIAÇÃO DOS MODELOS")
     print("="*80)
     train_models(features_train, features_test)
+
+    print("\n" + "="*80)
+    print("ETAPA 4: TREINAMENTO COM AUTOENCODER (FEATURES LATENTES)")
+    print("="*80)
+    train_models_autoencoder(features_train, features_test, latent_dim=8)
     
     print("\n" + "="*80)
     print("PIPELINE CONCLUÍDO COM SUCESSO!")

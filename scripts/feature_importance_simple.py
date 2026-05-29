@@ -2,11 +2,14 @@
 Script simples para ver feature importance das novas features Form + μₖ
 """
 
-import pandas as pd
-import numpy as np
-import joblib
-import sys
+import argparse
 import os
+import sys
+
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -14,7 +17,16 @@ from preprocessing import load_all_data
 from feature_engineering import calculate_team_stats
 from train_models import prepare_features_by_model
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Feature importance (RandomForest)")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
 def main():
+    args = parse_args()
+    output_dir = args.output_dir
     print("="*80)
     print("FEATURE IMPORTANCE - RandomForest")
     print("="*80)
@@ -22,6 +34,7 @@ def main():
     # Carregar e processar
     print("\n1. Carregando dados...")
     df_all = load_all_data()
+
     df_train = df_all[df_all['Season'] <= 2014].copy()
     
     print("2. Calculando features...")
@@ -33,7 +46,7 @@ def main():
     
     # Carregar modelo
     print("\n3. Carregando modelo RandomForest...")
-    data = joblib.load('models/trained_models.pkl')
+    data = joblib.load(args.model_path)
     rf_model = data['models']['RandomForest']['model']
     
     # Se for CalibratedClassifierCV, pegar o modelo base
@@ -116,6 +129,26 @@ def main():
             for feat, corr in correlations.items():
                 if feat != new_feat:
                     print(f"  {feat:<30}: {corr:7.3f}")
+
+    # Save outputs
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'feature_importance_randomforest.csv')
+    importance_df.to_csv(output_path, index=False)
+    print(f"\n✓ Análise completa salva em: {output_path}")
+
+    figures_dir = os.path.join(output_dir, 'figures')
+    os.makedirs(figures_dir, exist_ok=True)
+
+    top_20 = importance_df.head(20).iloc[::-1]
+    plt.figure(figsize=(10, 6))
+    plt.barh(top_20['Feature'], top_20['Importance'])
+    plt.title('Top 20 Feature Importance - RandomForest')
+    plt.xlabel('Importance')
+    plt.tight_layout()
+    fig_path = os.path.join(figures_dir, 'feature_importance_randomforest.png')
+    plt.savefig(fig_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"✓ Gráfico salvo em: {fig_path}")
 
 if __name__ == "__main__":
     main()

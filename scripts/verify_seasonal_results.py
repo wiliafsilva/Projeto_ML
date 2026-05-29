@@ -11,6 +11,7 @@ Data: Março 2026
 
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import joblib
@@ -22,20 +23,29 @@ print("VERIFICAÇÃO DE RESULTADOS POR TEMPORADA")
 print("="*80)
 print()
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Verificar resultados sazonais")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    return parser.parse_args()
+
+
+args = parse_args()
+
 # Verificar se o arquivo existe
-pkl_file = Path('models/trained_models.pkl')
+pkl_file = Path(args.model_path)
 
 if not pkl_file.exists():
-    print("❌ Arquivo models/trained_models.pkl não encontrado!")
+    print(f"❌ Arquivo {pkl_file} não encontrado!")
     print("\n💡 Execute 'python main.py' para treinar os modelos primeiro.")
     sys.exit(1)
 
-print("✅ Arquivo encontrado: models/trained_models.pkl")
+print(f"✅ Arquivo encontrado: {pkl_file}")
 print()
 
 # Carregar resultados
 print("📂 Carregando resultados...")
-results_metadata = joblib.load('models/trained_models.pkl')
+results_metadata = joblib.load(args.model_path)
 
 # Verificar estrutura
 print("\n" + "="*80)

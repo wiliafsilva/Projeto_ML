@@ -13,6 +13,7 @@ Saída:
 """
 
 import os
+import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -108,13 +109,25 @@ def generate_radar_for_season(season, df_base, trained_meta, output_path):
         print(f"{m:<15} {data[0,i]:>10.4f} {data[1,i]:>11.4f} {data[2,i]:>10.4f} {data[3,i]:>10.4f} {data[4,i]:>10.4f}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Radar chart por temporada")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
 def main():
-    df = pd.read_csv('models/baseline_comparison.csv')
-    trained = joblib.load('models/trained_models.pkl')
+    args = parse_args()
+    output_dir = args.output_dir
+    figures_dir = os.path.join(output_dir, 'figures')
+
+    df = pd.read_csv(os.path.join(output_dir, 'baseline_comparison.csv'))
+    trained = joblib.load(args.model_path)
 
     seasons = ['2014-2015', '2015-2016', 'All']
     for s in seasons:
-        out = f'models/figures/radar_chart_{s}.png'
+        os.makedirs(figures_dir, exist_ok=True)
+        out = os.path.join(figures_dir, f'radar_chart_{s}.png')
         generate_radar_for_season(s, df, trained, out)
         print(f"Saved: {out}")
 

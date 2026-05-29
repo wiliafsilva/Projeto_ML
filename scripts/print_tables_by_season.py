@@ -1,10 +1,29 @@
 import os
 import pickle
+import argparse
 import pandas as pd
 
 base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-csv_path = os.path.join(base, 'models', 'baseline_comparison.csv')
-pkl_path = os.path.join(base, 'models', 'trained_models.pkl')
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Imprimir tabelas por temporada")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+args = parse_args()
+output_dir = args.output_dir
+if not os.path.isabs(output_dir):
+    output_dir = os.path.join(base, output_dir)
+
+model_path = args.model_path
+if not os.path.isabs(model_path):
+    model_path = os.path.join(base, model_path)
+
+csv_path = os.path.join(output_dir, 'baseline_comparison.csv')
+pkl_path = model_path
 
 print('\n== Verificando arquivos:')
 print(' baseline CSV:', csv_path, '->', os.path.exists(csv_path))
@@ -61,7 +80,7 @@ for s in seasons:
 
 print('\n== TEMPORADA: All (agregado)')
 if baseline_df is not None:
-    print('\n- Valores em models/baseline_comparison.csv:')
+    print(f"\n- Valores em {csv_path}:")
     print(baseline_df)
 else:
     print('- baseline_comparison.csv não encontrado.')

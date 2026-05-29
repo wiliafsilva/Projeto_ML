@@ -15,6 +15,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import argparse
 import pandas as pd
 import numpy as np
 from sklearn.dummy import DummyClassifier
@@ -26,7 +27,14 @@ from src.feature_engineering import calculate_team_stats
 from src.train_models import prepare_features_by_model
 
 
-def calculate_baseline_metrics():
+def parse_args():
+    parser = argparse.ArgumentParser(description="Baseline comparison")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    parser.add_argument("--output-dir", default="models")
+    return parser.parse_args()
+
+
+def calculate_baseline_metrics(model_path, output_dir):
     """
     Calcula métricas do baseline (sempre prever classe majoritária).
     
@@ -159,7 +167,7 @@ def calculate_baseline_metrics():
     
     # Carregar modelos treinados
     try:
-        models_data = joblib.load('models/trained_models.pkl')
+        models_data = joblib.load(model_path)
         
         models = models_data['models']
         
@@ -325,8 +333,9 @@ def calculate_baseline_metrics():
         # SALVAR RESULTADOS
         # ========================================================================
         results_df = pd.DataFrame(all_results)
-        results_df.to_csv('models/baseline_comparison.csv', index=False)
-        print("💾 Resultados salvos em: models/baseline_comparison.csv")
+        output_path = os.path.join(output_dir, 'baseline_comparison.csv')
+        results_df.to_csv(output_path, index=False)
+        print(f"💾 Resultados salvos em: {output_path}")
         print()
         
         print("="*80)
@@ -340,10 +349,11 @@ def calculate_baseline_metrics():
         }
         
     except FileNotFoundError:
-        print("⚠️ Arquivo models/trained_models.pkl não encontrado!")
+        print(f"⚠️ Arquivo {model_path} não encontrado!")
         print("   Execute 'python main.py' primeiro para treinar os modelos.")
         return None
 
 
 if __name__ == '__main__':
-    results = calculate_baseline_metrics()
+    args = parse_args()
+    results = calculate_baseline_metrics(args.model_path, args.output_dir)

@@ -1,8 +1,17 @@
+import argparse
 import joblib
 import pandas as pd
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Mostrar metricas dos modelos")
+    parser.add_argument("--model-path", default="models/trained_models.pkl")
+    return parser.parse_args()
+
+
+args = parse_args()
+
 # Carregar modelos retreinados
-results_metadata = joblib.load("models/trained_models.pkl")
+results_metadata = joblib.load(args.model_path)
 
 # Extrair informações
 models = results_metadata.get('models', results_metadata)  # Compatibilidade com versão antiga
