@@ -808,3 +808,309 @@ def train_models_autoencoder(df_train, df_test, latent_dim=8, output_dir="models
     joblib.dump(scaler, os.path.join(output_dir, "scaler.joblib"))
     autoencoder.save(os.path.join(output_dir, "autoencoder.keras"))
     autoencoder.encoder.save(os.path.join(output_dir, "encoder.keras"))
+
+
+def train_models_with_decoder_hybrid(df_train, df_test, latent_dim=8, anomaly_percentile=95, output_dir="models/autoencoder_decoder_hybrid"):
+    """
+    Pipeline Robusto com Decoder Hybrid (Opção 4):
+    
+    ETAPA 1: Detecta anomalias usando reconstruction error
+    ETAPA 2: Filtra dados ruins (outliers)
+    ETAPA 3: Cria features híbridas (latent + reconstructed + error)
+    ETAPA 4: Treina classificadores com features híbridas
+    
+    Args:
+        df_train: DataFrame com features de treinamento
+        df_test: DataFrame com features de teste
+        latent_dim: Dimensão do latent space (padrão: 8)
+        anomaly_percentile: Percentil para threshold de anomalias (padrão: 95)
+        output_dir: Diretório para salvar resultados
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    print("\n" + "="*80)
+    print("PIPELINE ROBUSTO COM DECODER HYBRID")
+    print("="*80)
+    
+    # ========== ETAPA 1: Preparar dados ==========
+    print("\n[ETAPA 1] PREPARAÇÃO DOS DADOS")
+    print("-" * 80)
+    
+    X_train, y_train, seasons_train = _prepare_autoencoder_features(df_train)
+    X_test, y_test, seasons_test = _prepare_autoencoder_features(df_test)
+    
+    print(f"Dados de treino: {X_train.shape[0]} amostras, {X_train.shape[1]} features")
+    print(f"Dados de teste: {X_test.shape[0]} amostras, {X_test.shape[1]} features")
+    
+    scaler = MinMaxScaler()
+    X_train_scaled = scaler.fit_transform(X_train.values.astype(np.float32))
+    X_test_scaled = scaler.transform(X_test.values.astype(np.float32))
+    
+    # ========== ETAPA 2: Treinar Autoencoder e Detectar Anomalias ==========
+    print("\n[ETAPA 2] TREINAMENTO DO AUTOENCODER E DETECÇÃO DE ANOMALIAS")
+    print("-" * 80)
+    
+    print(f"Treinando autoencoder (latent_dim={latent_dim})...")
+    autoencoder = AutoencoderLatent(X_train_scaled.shape[1], latent_dim=latent_dim)
+    autoencoder.compile(optimizer="adam", loss="mae")
+    
+    early_stop = EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        restore_best_weights=True,
+        min_delta=1e-4,
+    )
+    reduce_lr = ReduceLROnPlateau(
+        monitor="val_loss",
+        factor=0.5,
+        patience=5,
+        min_lr=1e-6,
+        verbose=0,
+    )
+    
+    autoencoder.fit(
+        X_train_scaled,
+        X_train_scaled,
+        epochs=200,
+        batch_size=min(2048, len(X_train_scaled)),
+        validation_data=(X_test_scaled, X_test_scaled),
+        shuffle=True,
+        verbose=0,
+        callbacks=[early_stop, reduce_lr],
+    )
+    
+    print("✓ Autoencoder treinado")
+    
+    # Computar reconstruction errors no treino
+    X_train_reconstructed = autoencoder(X_train_scaled).numpy()
+    reconstruction_errors_train = np.mean(np.abs(X_train_scaled - X_train_reconstructed), axis=1)
+    
+    # Definir threshold para anomalias
+    threshold = np.percentile(reconstruction_errors_train, anomaly_percentile)
+    anomaly_mask = reconstruction_errors_train >= threshold
+    clean_mask = reconstruction_errors_train < threshold
+    
+    n_anomalies = anomaly_mask.sum()
+    anomaly_ratio = (n_anomalies / len(reconstruction_errors_train)) * 100
+    
+    print(f"\nAnálise de Anomalias (threshold = {threshold:.6f}):")
+    print(f"  • Anomalias detectadas: {n_anomalies} ({anomaly_ratio:.2f}%)")
+    print(f"  • Dados limpos: {clean_mask.sum()} ({100-anomaly_ratio:.2f}%)")
+    print(f"  • Reconstruction error - Min: {reconstruction_errors_train.min():.6f}, "
+          f"Max: {reconstruction_errors_train.max():.6f}, "
+          f"Mean: {reconstruction_errors_train.mean():.6f}")
+    
+    # ========== ETAPA 3: Criar Features Híbridas ==========
+    print("\n[ETAPA 3] CRIAÇÃO DE FEATURES HÍBRIDAS")
+    print("-" * 80)
+    
+    # Para dados de TREINO (limpos)
+    X_train_latent = autoencoder.encoder(X_train_scaled).numpy()
+    X_train_reconstructed = autoencoder(X_train_scaled).numpy()
+    X_train_reconstruction_error = np.mean(np.abs(X_train_scaled - X_train_reconstructed), axis=1, keepdims=True)
+    
+    # Features híbridas: [latent (8D) + reconstructed (43D) + error (1D)] = 52D
+    X_train_hybrid = np.hstack([
+        X_train_latent,
+        X_train_reconstructed,
+        X_train_reconstruction_error
+    ])
+    
+    # Para dados de TESTE
+    X_test_latent = autoencoder.encoder(X_test_scaled).numpy()
+    X_test_reconstructed = autoencoder(X_test_scaled).numpy()
+    X_test_reconstruction_error = np.mean(np.abs(X_test_scaled - X_test_reconstructed), axis=1, keepdims=True)
+    
+    X_test_hybrid = np.hstack([
+        X_test_latent,
+        X_test_reconstructed,
+        X_test_reconstruction_error
+    ])
+    
+    print(f"Features híbridas criadas:")
+    print(f"  • Latent space: {latent_dim}D")
+    print(f"  • Features reconstruídas: {X_train_reconstructed.shape[1]}D")
+    print(f"  • Reconstruction error: 1D")
+    print(f"  • Total: {X_train_hybrid.shape[1]}D (ao invés de {X_train_scaled.shape[1]}D originais)")
+    print(f"\nDados de treino: {X_train_hybrid.shape[0]} → {clean_mask.sum()} (após limpeza)")
+    print(f"Dados de teste: {X_test_hybrid.shape[0]}")
+    
+    # Usar apenas dados limpos para treino
+    X_train_hybrid_clean = X_train_hybrid[clean_mask]
+    y_train_clean = y_train[clean_mask]
+    seasons_train_clean = seasons_train[clean_mask] if seasons_train is not None else None
+    
+    # ========== ETAPA 4: Treinar Classificadores ==========
+    print("\n[ETAPA 4] TREINAMENTO DOS CLASSIFICADORES COM FEATURES HÍBRIDAS")
+    print("-" * 80)
+    
+    sample_weights_clean = compute_sample_weight('balanced', y_train_clean)
+    
+    models = {
+        "SVM": SVC(
+            probability=True,
+            kernel='rbf',
+            C=0.1,
+            gamma=0.001,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        "RandomForest": RandomForestClassifier(
+            n_estimators=50,
+            max_depth=5,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        "XGBoost": XGBClassifier(
+            eval_metric='mlogloss',
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.01,
+            subsample=0.8,
+            colsample_bytree=1.0,
+            random_state=42
+        ),
+        "NaiveBayes": GaussianNB(
+            var_smoothing=1e-05
+        ),
+    }
+    
+    results = {}
+    
+    print(f"\nTreinamento com {X_train_hybrid_clean.shape[0]} amostras limpas:\n")
+    print(f"{'Modelo':<20} {'Acurácia':>12} {'F1-Score':>12} {'RPS':>12}")
+    print("-" * 60)
+    
+    for name, model in models.items():
+        # Treinar com dados limpos
+        if name in ["XGBoost", "NaiveBayes"]:
+            model.fit(X_train_hybrid_clean, y_train_clean, sample_weight=sample_weights_clean)
+        else:
+            model.fit(X_train_hybrid_clean, y_train_clean)
+        
+        # Validar em dados de teste completos
+        preds = model.predict(X_test_hybrid)
+        probs = model.predict_proba(X_test_hybrid)
+        
+        acc = accuracy_score(y_test, preds)
+        f1 = f1_score(y_test, preds, average='macro', zero_division=0)
+        score_rps = rps(y_test, probs)
+        
+        print(f"{name:<20} {acc:>12.4f} {f1:>12.4f} {score_rps:>12.4f}")
+        
+        results[name] = {
+            "model": model,
+            "accuracy": acc,
+            "f1": f1,
+            "rps": score_rps,
+            "feature_columns": [f"h{i}" for i in range(X_train_hybrid.shape[1])]  # hybrid features
+        }
+    
+    # ========== ETAPA 5: Análise por Temporada ==========
+    print("\n[ETAPA 5] RESULTADOS POR TEMPORADA")
+    print("-" * 80)
+    
+    seasonal_results = {}
+    seasons_info = [
+        ('2014-2015', 2015),
+        ('2015-2016', 2016),
+        ('All', None)
+    ]
+    
+    for season_name, season_value in seasons_info:
+        seasonal_results[season_name] = {}
+        
+        if season_value is None:
+            mask = np.ones(len(y_test), dtype=bool)
+        else:
+            mask = seasons_test == season_value
+        
+        print(f"\n{season_name}: {mask.sum()} jogos")
+        
+        for name, info in results.items():
+            model = info['model']
+            preds_season = model.predict(X_test_hybrid[mask])
+            probs_season = model.predict_proba(X_test_hybrid[mask])
+            
+            acc_season = accuracy_score(y_test[mask], preds_season)
+            f1_season = f1_score(y_test[mask], preds_season, average='macro', zero_division=0)
+            rps_season = rps(y_test[mask], probs_season)
+            
+            seasonal_results[season_name][name] = {
+                'accuracy': acc_season,
+                'f1': f1_season,
+                'rps': rps_season,
+                'n_samples': mask.sum()
+            }
+    
+    # ========== Salvar Resultados ==========
+    print("\n" + "="*80)
+    print("SALVANDO RESULTADOS")
+    print("="*80)
+    
+    results_df = pd.DataFrame([
+        {
+            "model": name,
+            "accuracy": info["accuracy"],
+            "f1": info["f1"],
+            "rps": info["rps"],
+        } for name, info in results.items()
+    ])
+    results_df.to_csv(os.path.join(output_dir, "hybrid_model_results.csv"), index=False)
+    print(f"✓ Resultados salvos em: hybrid_model_results.csv")
+    
+    season_rows = []
+    for season_name, models_dict in seasonal_results.items():
+        for model_name, metrics in models_dict.items():
+            season_rows.append({
+                "season": season_name,
+                "model": model_name,
+                "accuracy": metrics["accuracy"],
+                "f1": metrics["f1"],
+                "rps": metrics["rps"],
+                "n_samples": metrics["n_samples"],
+            })
+    pd.DataFrame(season_rows).to_csv(
+        os.path.join(output_dir, "hybrid_model_results_by_season.csv"),
+        index=False,
+    )
+    print(f"✓ Resultados por temporada salvos em: hybrid_model_results_by_season.csv")
+    
+    results_metadata = {
+        'models': results,
+        'seasonal_results': seasonal_results,
+        'train_size': len(X_train_scaled),
+        'train_size_clean': clean_mask.sum(),
+        'test_size': len(X_test_scaled),
+        'train_period': '2005-2014',
+        'test_period': '2014-2016',
+        'latent_dim': latent_dim,
+        'anomaly_percentile': anomaly_percentile,
+        'anomalies_detected': int(n_anomalies),
+        'anomaly_ratio': float(anomaly_ratio),
+        'reconstruction_threshold': float(threshold),
+        'hybrid_features_count': X_train_hybrid.shape[1],
+        'methodology': 'Decoder Hybrid: Latent Space + Reconstructed Features + Error Signal'
+    }
+    
+    joblib.dump(results_metadata, os.path.join(output_dir, "trained_models_hybrid.pkl"))
+    joblib.dump(scaler, os.path.join(output_dir, "scaler_hybrid.joblib"))
+    autoencoder.save(os.path.join(output_dir, "autoencoder_hybrid.keras"))
+    autoencoder.encoder.save(os.path.join(output_dir, "encoder_hybrid.keras"))
+    autoencoder.decoder.save(os.path.join(output_dir, "decoder_hybrid.keras"))
+    
+    print(f"✓ Modelos e metadados salvos em: {output_dir}/")
+    
+    print("\n" + "="*80)
+    print("PIPELINE CONCLUÍDO COM SUCESSO!")
+    print("="*80)
+    print(f"\nResumo:")
+    print(f"  • Anomalias detectadas e removidas: {n_anomalies} ({anomaly_ratio:.2f}%)")
+    print(f"  • Dados de treino limpos: {clean_mask.sum()} amostras")
+    print(f"  • Features híbridas: {X_train_hybrid.shape[1]}D")
+    print(f"  • Modelos treinados: {list(results.keys())}")
+    print(f"  • Diretório de saída: {output_dir}/")
+    
+    return results, results_metadata
