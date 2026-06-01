@@ -122,6 +122,24 @@ for model_name in ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']:
     # Predições (usar predict() para manter comportamento consistente com o modelo treinado)
     model = models_info[model_name]['model']
     y_pred = model.predict(X_test_hybrid)
+
+    # --- DIAGNÓSTICO ADICIONAL ---
+    try:
+        classes = getattr(model, 'classes_', None)
+        print(f"  - Modelo classes_: {classes}")
+    except Exception:
+        print("  - Modelo não expõe atributo classes_")
+
+    unique, counts = np.unique(y_pred, return_counts=True)
+    print(f"  - Predições únicas (valores, contagens): {list(zip(unique.tolist(), counts.tolist()))}")
+
+    # Verificar integridade das features de teste
+    print(f"  - X_test_hybrid shape: {X_test_hybrid.shape}")
+    print(f"  - X_test_hybrid NaNs: {np.isnan(X_test_hybrid).sum()} (total)")
+    print(f"  - X_test_hybrid stats: min={X_test_hybrid.min():.6f}, max={X_test_hybrid.max():.6f}, mean={X_test_hybrid.mean():.6f}")
+    print(f"  - y_test distribution: {np.unique(y_test.values, return_counts=True)}")
+    print("  - Se o modelo previu apenas uma classe, verifique: scaler, alinhamento de colunas e se o modelo foi treinado no mesmo espaço de features.")
+    # --- FIM DIAGNÓSTICO ---
     
     # Confusion Matrix
     cm = confusion_matrix(y_test, y_pred, labels=[0, 1, 2])

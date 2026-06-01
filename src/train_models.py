@@ -15,6 +15,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import layers, Model
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from pathlib import Path
 
 def rps(y_true, y_prob):
     y_true = y_true.astype(int)  # Garantir que y_true é do tipo inteiro
@@ -25,6 +26,31 @@ def rps(y_true, y_prob):
     # com a definição de RPS usada no artigo (valor entre 0 e 1).
     k_minus_1 = y_prob.shape[1] - 1 if y_prob.shape[1] > 1 else 1
     return np.mean(np.sum((y_true_cum - y_prob_cum)**2, axis=1)) / k_minus_1
+
+
+def load_optimized_params(path='models/optimized_models.pkl'):
+    """Tenta carregar os parâmetros ótimos gerados pelo gridsearch.
+
+    Retorna um dict mapeando nomes de modelos para dicionários de parâmetros.
+    """
+    p = Path(path)
+    if p.exists():
+        try:
+            loaded = joblib.load(p)
+            params = {}
+            for key, val in loaded.items():
+                # Espera keys como 'SVM_optimized' -> mapear para 'SVM'
+                name = key.replace('_optimized', '')
+                if isinstance(val, dict) and 'params' in val:
+                    params[name] = val['params']
+            print(f"✓ Parâmetros otimizados carregados de: {path} -> modelos: {list(params.keys())}")
+            return params
+        except Exception as e:
+            print(f"⚠️ Erro ao carregar parâmetros otimizados de {path}: {e}")
+    else:
+        print(f"⚠️ Arquivo de parâmetros otimizados não encontrado em: {path}")
+
+    return {}
 
 
 def prepare_features_by_model(df, model_name):
@@ -155,35 +181,48 @@ def train_models(df_train, df_test):
 
     # Modelos com hiperparâmetros otimizados (DIA 5 + DIA 10 validação)
     # DIA 10: Validado com 43 features (Form + μₖ) → XGBoost RPS 0.4115 (melhor do projeto!)
+    # Tentar carregar parâmetros otimizados (gerados por scripts/gridsearch_advanced.py)
+    optimized_params = load_optimized_params()
+
+    svm_params = dict(
+        probability=True,
+        kernel='rbf',
+        C=0.1,
+        gamma=0.001,
+        random_state=42,
+        class_weight='balanced'
+    )
+    svm_params.update(optimized_params.get('SVM', {}))
+
+    rf_params = dict(
+        n_estimators=50,
+        max_depth=5,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        random_state=42,
+        class_weight='balanced'
+    )
+    rf_params.update(optimized_params.get('RandomForest', {}))
+
+    xgb_base_params = dict(
+        eval_metric='mlogloss',
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.01,
+        subsample=0.8,
+        colsample_bytree=1.0,
+        random_state=42
+    )
+    xgb_base_params.update(optimized_params.get('XGBoost', {}))
+
+    nb_params = dict(var_smoothing=1e-05)
+    nb_params.update(optimized_params.get('NaiveBayes', {}))
+
     models = {
-        "SVM": SVC(
-            probability=True, 
-            kernel='rbf',
-            C=0.1,               # DIA 5: Otimizado via GridSearch
-            gamma=0.001,         # DIA 5: Otimizado via GridSearch
-            random_state=42, 
-            class_weight='balanced'
-        ),
-        "RandomForest": RandomForestClassifier(
-            n_estimators=50,          # DIA 5: Otimizado via GridSearch
-            max_depth=5,              # DIA 5: Otimizado via GridSearch
-            min_samples_split=2,      # DIA 5: Otimizado via GridSearch
-            min_samples_leaf=1,       # DIA 5: Otimizado via GridSearch
-            random_state=42, 
-            class_weight='balanced'
-        ),
-        "XGBoost": XGBClassifier(
-            eval_metric='mlogloss',
-            n_estimators=200,         # DIA 5: Otimizado via GridSearch
-            max_depth=3,              # DIA 5: Otimizado via GridSearch
-            learning_rate=0.01,       # DIA 5: Otimizado via GridSearch
-            subsample=0.8,            # DIA 5: Otimizado via GridSearch
-            colsample_bytree=1.0,     # DIA 5: Otimizado via GridSearch
-            random_state=42
-        ),
-        "NaiveBayes": GaussianNB(
-            var_smoothing=1e-05       # DIA 5: Otimizado via GridSearch
-        ),
+        "SVM": SVC(**svm_params),
+        "RandomForest": RandomForestClassifier(**rf_params),
+        "XGBoost": XGBClassifier(**xgb_base_params),
+        "NaiveBayes": GaussianNB(**nb_params),
     }
 
     results = {}
@@ -599,36 +638,48 @@ def train_models_autoencoder(df_train, df_test, latent_dim=8, output_dir="models
     X_test_latent = autoencoder.encoder(X_test_scaled).numpy()
 
     sample_weights = compute_sample_weight('balanced', y_train)
+    # Tentar usar parâmetros otimizados
+    optimized_params = load_optimized_params()
+
+    svm_params = dict(
+        probability=True,
+        kernel='rbf',
+        C=0.1,
+        gamma=0.001,
+        random_state=42,
+        class_weight='balanced'
+    )
+    svm_params.update(optimized_params.get('SVM', {}))
+
+    rf_params = dict(
+        n_estimators=50,
+        max_depth=5,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        random_state=42,
+        class_weight='balanced'
+    )
+    rf_params.update(optimized_params.get('RandomForest', {}))
+
+    xgb_base_params = dict(
+        eval_metric='mlogloss',
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.01,
+        subsample=0.8,
+        colsample_bytree=1.0,
+        random_state=42
+    )
+    xgb_base_params.update(optimized_params.get('XGBoost', {}))
+
+    nb_params = dict(var_smoothing=1e-05)
+    nb_params.update(optimized_params.get('NaiveBayes', {}))
 
     models = {
-        "SVM": SVC(
-            probability=True,
-            kernel='rbf',
-            C=0.1,
-            gamma=0.001,
-            random_state=42,
-            class_weight='balanced'
-        ),
-        "RandomForest": RandomForestClassifier(
-            n_estimators=50,
-            max_depth=5,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            random_state=42,
-            class_weight='balanced'
-        ),
-        "XGBoost": XGBClassifier(
-            eval_metric='mlogloss',
-            n_estimators=200,
-            max_depth=3,
-            learning_rate=0.01,
-            subsample=0.8,
-            colsample_bytree=1.0,
-            random_state=42
-        ),
-        "NaiveBayes": GaussianNB(
-            var_smoothing=1e-05
-        ),
+        "SVM": SVC(**svm_params),
+        "RandomForest": RandomForestClassifier(**rf_params),
+        "XGBoost": XGBClassifier(**xgb_base_params),
+        "NaiveBayes": GaussianNB(**nb_params),
     }
 
     results = {}
@@ -937,35 +988,48 @@ def train_models_with_decoder_hybrid(df_train, df_test, latent_dim=8, anomaly_pe
     
     sample_weights_clean = compute_sample_weight('balanced', y_train_clean)
     
+    # Tentar usar parâmetros otimizados, se existirem
+    optimized_params = load_optimized_params()
+
+    svm_params = dict(
+        probability=True,
+        kernel='rbf',
+        C=0.1,
+        gamma=0.001,
+        random_state=42,
+        class_weight='balanced'
+    )
+    svm_params.update(optimized_params.get('SVM', {}))
+
+    rf_params = dict(
+        n_estimators=50,
+        max_depth=5,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        random_state=42,
+        class_weight='balanced'
+    )
+    rf_params.update(optimized_params.get('RandomForest', {}))
+
+    xgb_base_params = dict(
+        eval_metric='mlogloss',
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.01,
+        subsample=0.8,
+        colsample_bytree=1.0,
+        random_state=42
+    )
+    xgb_base_params.update(optimized_params.get('XGBoost', {}))
+
+    nb_params = dict(var_smoothing=1e-05)
+    nb_params.update(optimized_params.get('NaiveBayes', {}))
+
     models = {
-        "SVM": SVC(
-            probability=True,
-            kernel='rbf',
-            C=0.1,
-            gamma=0.001,
-            random_state=42,
-            class_weight='balanced'
-        ),
-        "RandomForest": RandomForestClassifier(
-            n_estimators=50,
-            max_depth=5,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            random_state=42,
-            class_weight='balanced'
-        ),
-        "XGBoost": XGBClassifier(
-            eval_metric='mlogloss',
-            n_estimators=200,
-            max_depth=3,
-            learning_rate=0.01,
-            subsample=0.8,
-            colsample_bytree=1.0,
-            random_state=42
-        ),
-        "NaiveBayes": GaussianNB(
-            var_smoothing=1e-05
-        ),
+        "SVM": SVC(**svm_params),
+        "RandomForest": RandomForestClassifier(**rf_params),
+        "XGBoost": XGBClassifier(**xgb_base_params),
+        "NaiveBayes": GaussianNB(**nb_params),
     }
     
     results = {}

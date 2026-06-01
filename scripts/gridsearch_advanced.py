@@ -294,6 +294,8 @@ Após avaliação por temporada, salvamos os resultados detalhados e os modelos 
 for model_info in best_models.values():
     model_info['seasonal_results'] = []
 
+# Garantir que a pasta 'models' exista antes de salvar (evita FileNotFoundError)
+Path('models').mkdir(parents=True, exist_ok=True)
 joblib.dump(best_models, 'models/optimized_models.pkl')
 print("✓ Modelos otimizados salvos em: models/optimized_models.pkl")
 

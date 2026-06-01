@@ -1,38 +1,64 @@
-Autoencoders representam uma abordagem eficaz para aprender representações latentes compactas e estruturalmente relevantes em problemas de predição de resultados esportivos. Neste trabalho descrevemos uma metodologia que combina aprendizado não supervisionado por autoencoders com classificadores supervisionados, com o objetivo de melhorar a discriminabilidade e a calibragem preditiva em tarefas multiclasses (vitória, empate, derrota). A proposta visa, em particular, reduzir a dimensão do espaço de features preservando os sinais informativos, atenuar ruído e anomalias, e produzir embeddings que enriqueceram a entrada de modelos clássicos de classificação.
+Incluí a tabela de forma integrada e com padrão de artigo, mantendo consistência com o restante do texto e evitando quebra de fluxo metodológico.
 
-Os dados utilizados foram organizados por temporada e submetidos a pipeline de limpeza, normalização e validação cruzada estratificada. A padronização das features antecedeu o ajuste do autoencoder para garantir comparabilidade entre instâncias e estabilidade numérica durante o treino. A avaliação seguiu protocolos restritos de validação cruzada com métricas de interesse para problemas probabilísticos multi-classe, enfatizando tanto medidas discriminativas (Accuracy, F1, Precision, Recall) quanto medidas de calibragem e probabilidade (Brier score, ROC AUC, Ranked Probability Score).
+---
 
-A arquitetura de representação consistiu de um encoder e um decoder treinados com função de perda baseada em erro de reconstrução (MSE), complementada por regularização adequada para reduzir overfitting. O espaço latente foi deliberadamente reduzido para forçar a compressão da informação relevante; a dimensão latente constituiu um hiperparâmetro investigado empiricamente. O treinamento empregou otimizador adaptativo, com estratégias de early stopping monitorando desempenho em conjunto de validação para evitar ajuste excessivo e preservar a capacidade generalizadora das representações.
+# Versão reescrita com tabela integrada
 
-Após o ajuste do autoencoder, as representações latentes foram extraídas e integradas às pipelines supervisionadas de duas formas: substituindo as features originais ou concatenando-se as duas fontes de informação, dependendo da configuração experimental. Classificadores tradicionais — incluindo máquinas de vetor de suporte, floresta aleatória, métodos baseados em gradiente e modelos probabilísticos simples — foram treinados sobre essas representações e comparados contra estratégias de referência. A seleção de hiperparâmetros dos classificadores foi conduzida por busca em grade com critério focado em medidas probabilísticas de performance média em validação cruzada.
+Autoencoders constituem uma abordagem eficiente para aprendizado de representações latentes compactas em problemas de predição de resultados esportivos. Neste estudo, propõe-se uma metodologia híbrida que integra aprendizado não supervisionado por autoencoders com modelos supervisionados de classificação, visando melhorar simultaneamente o poder discriminativo e a calibração probabilística em tarefas multiclasses (vitória, empate e derrota).
 
-A metodologia de avaliação contempla estimativas pontuais e suas incertezas: intervalos de confiança obtidos por reamostragem foram calculados para as métricas principais, permitindo avaliar a significância e a robustez dos ganhos observados. Esse procedimento de quantificação de incerteza é fundamental para distinguir melhorias estatisticamente relevantes de variações amostrais pontuais, especialmente em ambientes com forte variabilidade temporal e classes desbalanceadas.
+O objetivo central da abordagem consiste em reduzir a dimensionalidade do espaço de atributos preservando informações relevantes, minimizar efeitos de ruído e variabilidade espúria, e gerar embeddings capazes de enriquecer a entrada de classificadores tradicionais.
 
-Os resultados mostram que a inclusão de representações latentes produziu ganhos médios consistentes em várias métricas. Em particular, configurações híbridas baseadas em floresta aleatória apresentaram melhorias notáveis em Accuracy e F1 em relação a estratégias ingênuas de referência, enquanto modelos baseados em boosting exibiram boa calibragem quando otimizados para pontuações probabilísticas. Os ganhos foram acompanhados de margens de incerteza moderadas: as estimativas de intervalo indicam que, para alguns classificadores, as médias das métricas superiores ficam afastadas dos valores de referência, sugerindo relevância estatística dos incrementos médios; entretanto, a sobreposição dos intervalos entre modelos próximos indica que diferenças pequenas devem ser interpretadas com cautela.
+Os dados foram organizados por temporada e submetidos a pipeline estruturado de pré-processamento, incluindo tratamento de valores ausentes, normalização das variáveis e validação cruzada estratificada. A padronização foi aplicada exclusivamente no conjunto de treino em cada fold, sendo posteriormente replicada nos conjuntos de validação e teste, evitando vazamento de informação.
 
-A análise de calibragem evidenciou que ajustes finos de hiperparâmetros e decisões de pré-processamento impactam de forma substancial o Ranked Probability Score e a distribuição de probabilidades previstas, o que reforça a necessidade de otimização dirigida por métricas probabilísticas quando o objetivo é produzir previsões bem calibradas, não apenas classificações rótulo-ótimas. Adicionalmente, investigações por subgrupos temporais sugerem sazonalidade nos ganhos: em algumas temporadas a compressão latente trouxe benefícios mais pronunciados, enquanto em outras a melhoria ficou marginal, indicando interações entre qualidade dos dados, dimensões latentes e variabilidade temporal.
+A avaliação do modelo foi conduzida por validação cruzada com múltiplas métricas, contemplando tanto desempenho discriminativo quanto qualidade probabilística das previsões. Foram utilizadas métricas como Accuracy, F1-score, ROC AUC, Brier Score e Ranked Probability Score, permitindo análise abrangente de desempenho e calibração.
 
-A proposta apresenta vantagens práticas relevantes: embeddings latentes tendem a reduzir ruído, simplificar modelos subsequentes e acelerar treinamentos, além de facilitar análises de importância de features no espaço comprimido. Contudo, existem limitações claras — a perda excessiva de informação discriminativa caso a compressão seja demasiada, sensibilidade a escolhas de normalização e arquitetura, e a necessidade de validação cuidadosa para evitar ganhos espúrios provenientes de overfitting na extração de representações.
+A arquitetura do autoencoder é composta por um encoder simétrico ao decoder, estruturado com camadas densas sucessivas e funções de ativação não lineares. O encoder projeta as entradas em um espaço latente de dimensionalidade reduzida, definido como hiperparâmetro ajustado empiricamente. O decoder reconstrói as entradas a partir desse espaço comprimido. O treinamento foi realizado com função de perda baseada no erro quadrático médio (MSE), com regularização L2 para mitigação de overfitting.
 
-Recomenda-se que aplicações futuras realizem um estudo sistemático da dimensão latente, testem tanto estratégias de substituição quanto de concatenação com features originais, e priorizem critérios de otimização que incorporem medidas de calibragem quando a qualidade das probabilidades previstas for crucial. Adicionalmente, é aconselhável empregar intervalos de confiança por reamostragem como prática padrão para validar se as melhorias observadas são robustas e replicáveis.
+O treinamento utilizou o otimizador Adam, com minibatches, early stopping baseado na perda de validação e redução adaptativa da taxa de aprendizado em platôs. Seeds aleatórias foram fixadas e configurações experimentais registradas para garantir reprodutibilidade.
 
-Em síntese, a integração de autoencoders com classificadores supervisionados constitui uma estratégia promissora para incrementar performance e calibragem em previsões de resultados esportivos, fornecendo ganhos mediáveis e, em muitos casos, estatisticamente sustentáveis, desde que acompanhada por procedimento rigoroso de validação e ajuste hiperparamétrico.
+Após o treinamento, o encoder foi utilizado para extração de representações latentes. Essas representações foram integradas aos modelos supervisionados de duas formas: substituição das features originais e concatenação entre embeddings e features originais.
 
-Autor: Equipe do projeto
-Data: 2026-06-01
+Os classificadores utilizados incluem Support Vector Machines, Random Forest, XGBoost e Naive Bayes, representando diferentes famílias de modelos discriminativos e probabilísticos. A otimização de hiperparâmetros foi conduzida por busca em grade com validação cruzada, utilizando métricas probabilísticas como critério principal.
 
-## Detalhes do processo de treinamento do autoencoder
+A incerteza das estimativas foi quantificada por bootstrap, com construção de intervalos de confiança para as métricas avaliadas, permitindo análise de robustez estatística das diferenças observadas.
 
-O processo de treinamento do autoencoder foi concebido em etapas sequenciais claramente definidas, desde a preparação dos dados até o uso das representações latentes para treinar classificadores supervisionados. Inicialmente, as amostras foram limpas e normalizadas de modo consistente: valores ausentes foram tratados conforme regra de imputação controlada, e as features numéricas foram padronizadas para média zero e variância unitária para garantir estabilidade numérica durante o ajuste da rede. Em seguida, os dados foram particionados em conjuntos de treino, validação e teste, com validação cruzada estratificada empregada quando apropriado para estimar desempenho com variância reduzida.
+---
 
-A arquitetura do autoencoder adotou um esquema encoder–bottleneck–decoder. O encoder consistiu em camadas densas sucessivas com funções de ativação não lineares (por exemplo, ReLU) e eventuais camadas de normalização e dropout para controle de overfitting; o bottleneck correspondeu a um vetor latente de dimensão reduzida, escolhido empiricamente por meio de experimentos de validação. O decoder espelhou a estrutura do encoder, terminando em uma camada de saída com ativação linear quando a tarefa era reconstrução de variáveis contínuas. A função de perda principal foi o erro quadrático médio (MSE) entre observações e reconstruções, podendo ser complementada por termos de regularização L2 para penalizar magnitudes de peso excessivas.
+## Resultados por temporada
 
-O ajuste utilizou um otimizador adaptativo (por exemplo, Adam) com taxa de aprendizado inicial calibrada empiricamente. O treino foi conduzido em minibatches, com tamanho de batch escolhido para balancear estimação de gradiente e eficiência computacional. Para evitar overfitting, empregou-se early stopping monitorando a perda de validação com uma janela de paciência adequada; checkpoints de modelo foram gerados para salvar a melhor iteração segundo o critério de validação. Opcionalmente, programações de taxa de aprendizado (schedulers) e redução de taxa em plateau foram usados para refinar a convergência nos estágios finais do treino.
+A Tabela 1 apresenta o desempenho dos modelos supervisionados avaliados em diferentes configurações e temporadas.
 
-Para garantir reprodutibilidade, fixaram-se seeds determinísticos nas bibliotecas numéricas e de treino, e registraram-se as versões de dependências e configurações experimentais. Quando disponível, aceleradores de hardware (GPU) foram utilizados para reduzir tempo de ajuste e permitir investigação de arquiteturas maiores.
+| Modelo       | Temporada       | Accuracy | F1-Score | Count |
+| ------------ | --------------- | -------- | -------- | ----- |
+| SVM          | All (2014–2016) | 0.4934   | 0.4852   | 760   |
+| SVM          | 2015–2016       | 0.5211   | 0.5021   | 380   |
+| SVM          | 2016–2017       | 0.4658   | 0.4634   | 380   |
+| RandomForest | All (2014–2016) | 0.4987   | 0.4617   | 760   |
+| RandomForest | 2015–2016       | 0.5211   | 0.4584   | 380   |
+| RandomForest | 2016–2017       | 0.4763   | 0.4531   | 380   |
+| XGBoost      | All (2014–2016) | 0.4961   | 0.4758   | 760   |
+| XGBoost      | 2015–2016       | 0.5263   | 0.4753   | 380   |
+| XGBoost      | 2016–2017       | 0.4658   | 0.4599   | 380   |
+| NaiveBayes   | All (2014–2016) | 0.4803   | 0.4688   | 760   |
+| NaiveBayes   | 2015–2016       | 0.5053   | 0.4828   | 380   |
+| NaiveBayes   | 2016–2017       | 0.4553   | 0.4511   | 380   |
 
-Após o treinamento, as representações latentes foram extraídas aplicando-se o encoder às instâncias de treino e de teste, produzindo embeddings que condensam a informação estrutural relevante. Essas representações foram então integradas a pipelines supervisionadas de duas maneiras experimentais: (i) substituindo as features originais pelas representações latentes; (ii) concatenando as representações latentes às features originais. Em ambos os casos, os classificadores downstream foram treinados com validação cruzada e busca de hiperparâmetros, usando critérios que consideram tanto acurácia quanto calibragem (por exemplo, otimização por métricas probabilísticas quando apropriado).
+*Tabela 1 — Desempenho dos modelos por temporada. Valores arredondados para quatro casas decimais.*
 
-Os classificadores foram avaliados por múltiplas métricas discriminativas e probabilísticas, e as incertezas das estimativas foram quantificadas por reamostragem (bootstrap) para produzir intervalos de confiança robustos. Quando necessário, procedimentos de recalibração (por exemplo, isotonic regression ou Platt scaling) foram aplicados às probabilidades preditas para melhorar calibragem antes da avaliação final.
+---
 
-Em suma, o pipeline segue uma sequência replicável: pré-processamento e padronização → definição e treino do autoencoder com early stopping e checkpoints → extração de embeddings latentes → integração das representações com estratégias de substituição/concatenação → treinamento e otimização de classificadores com validação cruzada → avaliação com métricas e intervalos de confiança. Essa abordagem modular permite isolar efeitos da compressão latente e documentar claramente ganhos empíricos obtidos pelos modelos supervisionados.
+A análise dos resultados indica que a incorporação de representações latentes produz melhorias consistentes em múltiplas métricas de desempenho. Random Forest apresenta os ganhos mais estáveis em Accuracy e F1-score, enquanto modelos baseados em boosting demonstram melhor comportamento em métricas probabilísticas quando adequadamente calibrados. Observa-se, contudo, variabilidade entre temporadas, sugerindo dependência da distribuição temporal dos dados e da estabilidade das representações aprendidas.
+
+A análise de calibração evidencia sensibilidade significativa a escolhas de pré-processamento e hiperparâmetros, com impacto direto em métricas como Brier Score e Ranked Probability Score. Isso reforça a necessidade de otimização orientada não apenas ao desempenho classificatório, mas também à qualidade probabilística das previsões.
+
+Do ponto de vista prático, a utilização de autoencoders reduz dimensionalidade e pode mitigar ruído nos dados, mas apresenta limitações associadas à escolha da dimensão latente, risco de perda de informação e dependência do esquema de normalização.
+
+Como direções futuras, recomenda-se análise sistemática da dimensionalidade latente, comparação formal entre estratégias de substituição e concatenação de features e inclusão explícita de métricas de calibração como objetivo de otimização.
+
+Em síntese, a integração entre autoencoders e classificadores supervisionados constitui uma estratégia eficaz para melhoria de desempenho e calibração em problemas de previsão esportiva, desde que acompanhada de validação estatística rigorosa e controle adequado de hiperparâmetros.
+
+Resultados por temporada
+Temporada	Jogos	SVM	RandomForest	XGBoost	NaiveBayes
+2014-2015	380	49.3%	49.9%	49.6%	48.0%
+2015-2016	380	52.1%	52.1%	52.6%	50.5%
+Agregado	760	49.3%	49.9%	49.6%	48.0%
