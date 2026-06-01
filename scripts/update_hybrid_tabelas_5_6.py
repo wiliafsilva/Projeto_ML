@@ -101,11 +101,8 @@ X_test_latent = encoder(X_test_scaled).numpy()
 X_test_reconstructed = decoder(X_test_latent).numpy()
 X_test_reconstruction_error = np.mean(np.abs(X_test_scaled - X_test_reconstructed), axis=1, keepdims=True)
 
-X_test_hybrid = np.hstack([
-    X_test_latent,
-    X_test_reconstructed,
-    X_test_reconstruction_error
-])
+# UPDATED: usar apenas as features reconstruídas do decoder
+X_test_hybrid = X_test_reconstructed
 
 # ============================================================================
 # TABELA 5: PERFORMANCE POR TEMPORADA

@@ -3,7 +3,8 @@ Update Tabela 3 - Comparação Completa de Modelos (DECODER HYBRID)
 ==================================================================
 
 Regenera Tabela 3 usando resultados do pipeline Decoder Hybrid.
-Compara: Baseline vs Latent Space vs Hybrid Decoder
+OBS: O pipeline Hybrid agora usa apenas as 43 features reconstruídas (decoder output).
+Compara: Baseline vs Latent Space vs Hybrid Decoder (Reconstructed 43D)
 
 Autor: Projeto_ML
 Data: Maio 2026
@@ -95,7 +96,7 @@ if hybrid_meta is not None:
             info = hybrid_meta['models'][model_name]
             table3_data.append({
                 'Modelo': model_name,
-                'Pipeline': 'Hybrid (Features 50D)',
+                'Pipeline': 'Hybrid (Features 43D - Reconstructed)',
                 'Accuracy': f"{info['accuracy']:.4f}",
                 'Precision': '-',
                 'Recall': '-',

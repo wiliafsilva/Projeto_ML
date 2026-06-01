@@ -1,9 +1,10 @@
 """
-Generate All - DECODER HYBRID
-=============================
+Generate All - DECODER HYBRID (Reconstructed-only 43D)
+=====================================================
 
 Script central que executa todos os scripts de geração de tabelas e figuras
-para o pipeline Decoder Hybrid em sequência.
+para o pipeline Decoder Hybrid em sequência. Observação: o Hybrid agora treina
+apenas com as 43 features reconstruídas (decoder output).
 
 Execução: python scripts/generate_hybrid_all.py
 
@@ -16,7 +17,7 @@ import sys
 import os
 
 print("="*80)
-print("GERANDO TODAS AS TABELAS E FIGURAS - DECODER HYBRID")
+print("GERANDO TODAS AS TABELAS E FIGURAS - DECODER HYBRID (RECONSTRUCTED 43D)")
 print("="*80)
 print()
 

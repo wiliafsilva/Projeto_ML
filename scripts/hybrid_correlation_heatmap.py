@@ -21,7 +21,7 @@ from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 
 print("="*80)
-print("CORRELATION HEATMAP - DECODER HYBRID")
+print("CORRELATION HEATMAP - DECODER HYBRID (43 Features)")
 print("="*80)
 print()
 
@@ -98,7 +98,7 @@ sns.heatmap(
     ax=ax
 )
 
-ax.set_title('Correlation Heatmap - 43 Features (Decoder Hybrid)', 
+ax.set_title('Correlation Heatmap - 43 Features (Decoder Hybrid - Reconstructed Only)', 
              fontsize=18, fontweight='bold', pad=20)
 ax.set_xlabel('Features', fontsize=12, fontweight='bold')
 ax.set_ylabel('Features', fontsize=12, fontweight='bold')

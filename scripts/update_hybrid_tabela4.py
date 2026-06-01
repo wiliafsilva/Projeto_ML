@@ -19,6 +19,16 @@ from sklearn.metrics import confusion_matrix
 from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning, module='pandas')
+# Ensure UTF-8 output on Windows terminals
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+
 print("="*80)
 print("TABELA 4 - CONFUSION MATRICES (DECODER HYBRID)")
 print("="*80)
@@ -95,11 +105,8 @@ X_test_latent = encoder(X_test_scaled).numpy()
 X_test_reconstructed = decoder(X_test_latent).numpy()
 X_test_reconstruction_error = np.mean(np.abs(X_test_scaled - X_test_reconstructed), axis=1, keepdims=True)
 
-X_test_hybrid = np.hstack([
-    X_test_latent,
-    X_test_reconstructed,
-    X_test_reconstruction_error
-])
+# UPDATED: usar apenas as features reconstruídas do decoder
+X_test_hybrid = X_test_reconstructed
 
 print(f"📊 Gerando Confusion Matrices...")
 print("-" * 80)
@@ -112,7 +119,7 @@ for model_name in ['RandomForest', 'XGBoost', 'NaiveBayes', 'SVM']:
     
     print(f"Gerando CM: {model_name}...")
     
-    # Predições
+    # Predições (usar predict() para manter comportamento consistente com o modelo treinado)
     model = models_info[model_name]['model']
     y_pred = model.predict(X_test_hybrid)
     

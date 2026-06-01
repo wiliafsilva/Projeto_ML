@@ -909,28 +909,19 @@ def train_models_with_decoder_hybrid(df_train, df_test, latent_dim=8, anomaly_pe
     X_train_reconstructed = autoencoder(X_train_scaled).numpy()
     X_train_reconstruction_error = np.mean(np.abs(X_train_scaled - X_train_reconstructed), axis=1, keepdims=True)
     
-    # Features híbridas: [latent (8D) + reconstructed (43D) + error (1D)] = 52D
-    X_train_hybrid = np.hstack([
-        X_train_latent,
-        X_train_reconstructed,
-        X_train_reconstruction_error
-    ])
+    # Features híbridas (UPDATED): usar apenas as 43 features reconstruídas (decoder output)
+    X_train_hybrid = X_train_reconstructed
     
     # Para dados de TESTE
     X_test_latent = autoencoder.encoder(X_test_scaled).numpy()
     X_test_reconstructed = autoencoder(X_test_scaled).numpy()
     X_test_reconstruction_error = np.mean(np.abs(X_test_scaled - X_test_reconstructed), axis=1, keepdims=True)
     
-    X_test_hybrid = np.hstack([
-        X_test_latent,
-        X_test_reconstructed,
-        X_test_reconstruction_error
-    ])
+    X_test_hybrid = X_test_reconstructed
     
     print(f"Features híbridas criadas:")
-    print(f"  • Latent space: {latent_dim}D")
-    print(f"  • Features reconstruídas: {X_train_reconstructed.shape[1]}D")
-    print(f"  • Reconstruction error: 1D")
+    print(f"  • Latent space (trained but not used for training): {latent_dim}D")
+    print(f"  • Features reconstruídas (usadas): {X_train_reconstructed.shape[1]}D")
     print(f"  • Total: {X_train_hybrid.shape[1]}D (ao invés de {X_train_scaled.shape[1]}D originais)")
     print(f"\nDados de treino: {X_train_hybrid.shape[0]} → {clean_mask.sum()} (após limpeza)")
     print(f"Dados de teste: {X_test_hybrid.shape[0]}")
@@ -1092,7 +1083,7 @@ def train_models_with_decoder_hybrid(df_train, df_test, latent_dim=8, anomaly_pe
         'anomaly_ratio': float(anomaly_ratio),
         'reconstruction_threshold': float(threshold),
         'hybrid_features_count': X_train_hybrid.shape[1],
-        'methodology': 'Decoder Hybrid: Latent Space + Reconstructed Features + Error Signal'
+        'methodology': 'Decoder Hybrid (RECONSTRUCTED ONLY): Reconstructed Features from Decoder'
     }
     
     joblib.dump(results_metadata, os.path.join(output_dir, "trained_models_hybrid.pkl"))

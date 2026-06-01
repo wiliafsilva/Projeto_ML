@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import tensorflow as tf
+import glob
 from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import MinMaxScaler
 from src.preprocessing import load_multiple_seasons
@@ -74,11 +75,8 @@ X_test_latent = encoder(X_test_scaled).numpy()
 X_test_reconstructed = decoder(X_test_latent).numpy()
 X_test_reconstruction_error = np.mean(np.abs(X_test_scaled - X_test_reconstructed), axis=1, keepdims=True)
 
-X_test_hybrid = np.hstack([
-    X_test_latent,
-    X_test_reconstructed,
-    X_test_reconstruction_error
-])
+# UPDATED: usar apenas as features reconstruídas do decoder
+X_test_hybrid = X_test_reconstructed
 
 print(f"   ✓ Features: {X_test_hybrid.shape}")
 print()
@@ -282,9 +280,17 @@ print("✅ VISUALIZAÇÕES ADICIONAIS CONCLUÍDAS!")
 print("="*80)
 print()
 print("📊 Arquivos gerados:")
-print(f"   ✓ PNG 1: {fig_path1}")
-print(f"   ✓ PNG 2: {fig_path2}")
-print(f"   ✓ PNG 3: {fig_path3}")
-print(f"   ✓ PNG 4: {fig_path4}")
+print(f"   ✓ hybrid_performance_by_season: {fig_path1}")
+
+# Listar todas as matrizes de confusão geradas (pode haver uma por modelo)
+confusion_files = sorted(glob.glob(os.path.join(figures_dir, "hybrid_confusion_matrix_*.png")))
+if confusion_files:
+    for p in confusion_files:
+        print(f"   ✓ {os.path.basename(p)}: {p}")
+else:
+    print("   ✓ Matrizes de confusão: (nenhuma encontrada)")
+
+print(f"   ✓ hybrid_prediction_confidence: {fig_path3}")
+print(f"   ✓ hybrid_performance_heatmap: {fig_path4}")
 print(f"   ✓ CSV: {csv_path}")
 print()

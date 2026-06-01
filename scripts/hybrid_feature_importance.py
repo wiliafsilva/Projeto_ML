@@ -2,10 +2,8 @@
 Feature Importance - DECODER HYBRID
 ====================================
 
-Gera ranking de importância das 50 features do pipeline Hybrid:
-- 8 features latentes
-- 43 features reconstruídas
-- 1 feature de erro de reconstrução
+Gera ranking de importância das 43 features reconstruídas do pipeline Hybrid
+ (USANDO APENAS O DECODER).
 
 Autor: Projeto_ML
 Data: Maio 2026
@@ -26,7 +24,7 @@ from src.preprocessing import load_multiple_seasons
 from src.feature_engineering import calculate_team_stats
 
 print("="*80)
-print("FEATURE IMPORTANCE - DECODER HYBRID (50D Features)")
+print("FEATURE IMPORTANCE - DECODER HYBRID (43D Reconstructed Features)")
 print("="*80)
 print()
 
@@ -71,17 +69,13 @@ X_test_latent = encoder(X_test_scaled).numpy()
 X_test_reconstructed = decoder(X_test_latent).numpy()
 X_test_reconstruction_error = np.mean(np.abs(X_test_scaled - X_test_reconstructed), axis=1, keepdims=True)
 
-X_test_hybrid = np.hstack([
-    X_test_latent,
-    X_test_reconstructed,
-    X_test_reconstruction_error
-])
+X_test_hybrid = X_test_reconstructed
 
 print(f"   ✓ Features Hybrid: {X_test_hybrid.shape}")
 print()
 
 print("="*80)
-print("FEATURE IMPORTANCE - RandomForest")
+print("FEATURE IMPORTANCE - RandomForest (Reconstructed Only)")
 print("="*80)
 print()
 
@@ -100,25 +94,15 @@ importances = rf_base.feature_importances_
 
 print(f"ℹ️  Importances size: {len(importances)}")
 
-# Mapear para tipos
-importance_type = []
-for i in range(len(importances)):
-    if i < 8:
-        importance_type.append('Latent')
-    elif i < 51:
-        importance_type.append('Reconstructed')
-    else:
-        importance_type.append('Error')
+importances = rf_base.feature_importances_
+
+print(f"ℹ️  Importances size: {len(importances)}")
+
+# Mapear todos como 'Reconstructed' (apenas saídas do decoder são usadas)
+importance_type = ['Reconstructed' for _ in range(len(importances))]
 
 # Criar feature names simplificados
-simple_features = []
-for i in range(len(importances)):
-    if i < 8:
-        simple_features.append(f'Latent_{i}')
-    elif i < 51:
-        simple_features.append(f'Recon_{i-8}')
-    else:
-        simple_features.append('Reconstruction_Error')
+simple_features = [f'Recon_{i}' for i in range(len(importances))]
 
 # DataFrame
 importance_df = pd.DataFrame({
@@ -146,7 +130,7 @@ print("IMPORTÂNCIA POR GRUPO")
 print("="*80)
 print()
 
-for ftype in ['Latent', 'Reconstructed', 'Error']:
+for ftype in ['Reconstructed']:
     type_data = importance_df[importance_df['Type'] == ftype]
     total_imp = type_data['Importance'].sum()
     pct = total_imp / importance_df['Importance'].sum() * 100
@@ -154,7 +138,7 @@ for ftype in ['Latent', 'Reconstructed', 'Error']:
 
 print()
 
-# Salvar como CSV
+ # Salvar como CSV
 output_dir = "models/autoencoder_decoder_hybrid"
 csv_path = os.path.join(output_dir, "hybrid_feature_importance.csv")
 importance_df.to_csv(csv_path, index=False)
@@ -188,9 +172,7 @@ ax.grid(axis='x', alpha=0.3, linestyle='--')
 # Legend
 from matplotlib.patches import Patch
 legend_elements = [
-    Patch(facecolor='#FF6B6B', edgecolor='black', label='Latent (8 features)'),
-    Patch(facecolor='#4ECDC4', edgecolor='black', label='Reconstructed (43 features)'),
-    Patch(facecolor='#FFD93D', edgecolor='black', label='Error (1 feature)')
+    Patch(facecolor='#4ECDC4', edgecolor='black', label='Reconstructed (43 features)')
 ]
 ax.legend(handles=legend_elements, loc='lower right', fontsize=11)
 
@@ -208,16 +190,22 @@ print()
 # Gerar visualização 2: Importância por grupo
 print("🎨 Gerando visualização 2: Importância por Tipo...")
 
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+# Determinar dinamicamente os tipos presentes (ex.: Reconstructed, Latent, Error)
+types_to_plot = importance_df['Type'].unique().tolist()
 
-types_to_plot = ['Latent', 'Reconstructed', 'Error']
+# Criar subplots dinamicamente para evitar eixos vazios
+n_types = len(types_to_plot)
+fig_width = max(6, 5 * n_types)
+fig, axes = plt.subplots(1, n_types, figsize=(fig_width, 5))
+if n_types == 1:
+    axes = [axes]
 
 for ax, ftype in zip(axes, types_to_plot):
     type_data = importance_df[importance_df['Type'] == ftype].head(15).sort_values('Importance', ascending=True)
-    
+
     ax.barh(range(len(type_data)), type_data['Importance'].values, 
-            color=colors[ftype], alpha=0.8, edgecolor='black')
-    
+            color=colors.get(ftype, '#4ECDC4'), alpha=0.8, edgecolor='black')
+
     ax.set_yticks(range(len(type_data)))
     ax.set_yticklabels(type_data['Feature'].values, fontsize=9)
     ax.set_xlabel('Importance', fontsize=10, fontweight='bold')
@@ -243,7 +231,7 @@ fig, ax = plt.subplots(figsize=(12, 6))
 
 for ftype in types_to_plot:
     type_data = importance_df[importance_df['Type'] == ftype]
-    ax.hist(type_data['Importance'], bins=20, alpha=0.6, label=ftype, color=colors[ftype])
+    ax.hist(type_data['Importance'], bins=20, alpha=0.8, label=ftype, color=colors.get(ftype, '#4ECDC4'))
 
 ax.set_xlabel('Importance Score', fontsize=12, fontweight='bold')
 ax.set_ylabel('Frequency', fontsize=12, fontweight='bold')
