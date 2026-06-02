@@ -857,7 +857,11 @@ def train_models_autoencoder(df_train, df_test, latent_dim=8, output_dir="models
     }
     joblib.dump(results_metadata, os.path.join(output_dir, "trained_models_latent.pkl"))
     joblib.dump(scaler, os.path.join(output_dir, "scaler.joblib"))
-    autoencoder.save(os.path.join(output_dir, "autoencoder.keras"))
+    # Autoencoder is a subclassed Model (not Functional/Sequential), so saving
+    # the whole model to HDF5 is unsupported. Save weights for the full
+    # autoencoder and save the `encoder` (Sequential) separately so other
+    # scripts can still load the encoder directly.
+    autoencoder.save_weights(os.path.join(output_dir, "autoencoder_weights.h5"))
     autoencoder.encoder.save(os.path.join(output_dir, "encoder.keras"))
 
 
@@ -1152,7 +1156,9 @@ def train_models_with_decoder_hybrid(df_train, df_test, latent_dim=8, anomaly_pe
     
     joblib.dump(results_metadata, os.path.join(output_dir, "trained_models_hybrid.pkl"))
     joblib.dump(scaler, os.path.join(output_dir, "scaler_hybrid.joblib"))
-    autoencoder.save(os.path.join(output_dir, "autoencoder_hybrid.keras"))
+    # See note above: save weights for the subclassed autoencoder and keep
+    # encoder/decoder saved as full Sequential models for downstream usage.
+    autoencoder.save_weights(os.path.join(output_dir, "autoencoder_hybrid_weights.h5"))
     autoencoder.encoder.save(os.path.join(output_dir, "encoder_hybrid.keras"))
     autoencoder.decoder.save(os.path.join(output_dir, "decoder_hybrid.keras"))
     
